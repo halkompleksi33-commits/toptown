@@ -24,7 +24,7 @@ export default {
    if(post&&(path==='register'||path==='login')){
     await limit('auth:'+req.headers.get('CF-Connecting-IP'),12,600);
     const name=clean(body.name,2,30),login=name.normalize('NFKC').toLocaleLowerCase('tr-TR');
-    if(typeof body.password!=='string'||body.password.length<10||body.password.length>128)fail('Şifre 10–128 karakter olmalı.');
+    if(typeof body.password!=='string'||body.password.length<4||body.password.length>128)fail('Şifre 4–128 karakter olmalı.');
     let u;
     if(path==='register'){
      const city=clean(body.city,2,50),age=Number(body.age);if(!Number.isInteger(age)||age<18||age>120)fail('Yaş 18–120 arasında olmalı.');
