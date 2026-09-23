@@ -29,8 +29,8 @@ export default {
     if(path==='register'){
      const city=clean(body.city,2,50),age=Number(body.age);if(!Number.isInteger(age)||age<18||age>120)fail('Yaş 18–120 arasında olmalı.');
      if(await q('SELECT id FROM users WHERE login=?',login).first())fail('Bu isim kullanılıyor. Başka bir isim seçin.',409);
-     const id=crypto.randomUUID(),salt=crypto.randomUUID(),hash=await password(body.password,salt);
-     await q('INSERT INTO users(id,name,login,city,age,salt,password_hash,created) VALUES(?,?,?,?,?,?,?,?)',id,name,login,city,age,salt,hash,now()).run();u=await q('SELECT * FROM users WHERE id=?',id).first();
+     const id=crypto.randomUUID(),salt=crypto.randomUUID(),hash=await password(body.password,salt),first=!(await q('SELECT id FROM users WHERE is_admin=1 LIMIT 1').first());
+     await q('INSERT INTO users(id,name,login,city,age,salt,password_hash,coins,is_admin,created) VALUES(?,?,?,?,?,?,?,?,?,?)',id,name,login,city,age,salt,hash,1000,first?1:0,now()).run();u=await q('SELECT * FROM users WHERE id=?',id).first();
     }else{
      u=await q('SELECT * FROM users WHERE login=?',login).first();const h=await password(body.password,u?.salt||'invalid-account');if(!u||!equal(h,u.password_hash))fail('İsim veya şifre hatalı.',401);
     }
@@ -40,7 +40,7 @@ export default {
     const u=await q('SELECT users.* FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token=? AND sessions.expires>?',await sha(token),now()).first();if(!u)fail('Oturum sona erdi. Tekrar giriş yapın.',401);
     if(post)await limit('action:'+u.id,90,60);
     const member=async()=>{const p=await q('SELECT * FROM presence WHERE user_id=?',u.id).first();if(!p)fail('Önce bir odaya katılın.',409);return p;};
-    if(path==='me'&&!post)result={user:profile(u),admin:env.ADMIN_USER_ID===u.id};
+    if(path==='me'&&!post)result={user:profile(u),admin:u.is_admin===1||env.ADMIN_USER_ID===u.id};
     else if(path==='rooms'&&!post){const rows=await q('SELECT rooms.id,rooms.name,rooms.owner,COUNT(presence.user_id) AS online FROM rooms LEFT JOIN presence ON presence.room_id=rooms.id AND presence.seen>? GROUP BY rooms.id ORDER BY rooms.created DESC LIMIT 100',now()-60).all();result=rows.results;}
     else if(path==='rooms'&&post){await limit('room:'+u.id,5,3600);const id=crypto.randomUUID();await q('INSERT INTO rooms(id,name,owner,created) VALUES(?,?,?,?)',id,clean(body.name,2,50),u.id,now()).run();result={id};}
     else if(path==='join'&&post){const room=await q('SELECT id FROM rooms WHERE id=?',body.room).first();if(!room)fail('Oda bulunamadı.',404);await sweep(db);await db.batch([q('DELETE FROM presence WHERE user_id=? AND room_id<>?',u.id,room.id),q('INSERT INTO presence(user_id,room_id,seen) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET seen=excluded.seen',u.id,room.id,now())]);result={ok:true};}
@@ -51,7 +51,7 @@ export default {
     else if(path==='seat'&&post){await member();const seat=body.seat;if(seat!==null&&(!Number.isInteger(seat)||seat<0||seat>8))fail('Geçersiz koltuk.');try{await q('UPDATE presence SET seat=?,seen=? WHERE user_id=?',seat,now(),u.id).run();}catch{fail('Bu koltuğa başka biri oturdu.',409);}result={ok:true};}
     else if(path==='youtube'&&post){const p=await member();const id=body.id;if(id!==null&&!/^[\w-]{11}$/.test(id||''))fail('Geçerli bir YouTube bağlantısı girin.');await db.batch([q('UPDATE rooms SET youtube=? WHERE id=?',id,p.room_id),q('INSERT INTO messages(room_id,user_id,name,kind,text,created) VALUES(?,?,?,?,?,?)',p.room_id,u.id,u.name,'system',id?'YouTube videosu başlattı':'videoyu kapattı',now())]);result={ok:true};}
     else if(path==='gift'&&post){const p=await member(),costs={rose:30,cake:120,rocket:300,crown:800},cost=costs[body.gift];if(!cost)fail('Geçersiz hediye.');if(u.coins<cost)fail('Yeterli jeton yok. Jeton satın alma henüz açık değil.');const recipient=await q('SELECT users.id,users.name FROM users JOIN presence ON presence.user_id=users.id WHERE users.id=? AND presence.room_id=?',body.recipient,p.room_id).first();if(!recipient||recipient.id===u.id)fail('Odadan başka bir kullanıcı seçin.');const id=crypto.randomUUID();await db.batch([q('INSERT INTO gifts SELECT ?,?,?,?, ?,?,? WHERE (SELECT coins FROM users WHERE id=?)>=?',id,u.id,recipient.id,p.room_id,body.gift,cost,now(),u.id,cost),q('UPDATE users SET coins=coins-? WHERE id=? AND EXISTS(SELECT 1 FROM gifts WHERE id=?)',cost,u.id,id),q('INSERT INTO messages(room_id,user_id,name,kind,text,created) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM gifts WHERE id=?)',p.room_id,u.id,u.name,'gift',recipient.name+' için '+body.gift+' gönderdi',now(),id)]);result={ok:true};}
-    else if(path==='admin'&&!post){if(env.ADMIN_USER_ID!==u.id)fail('Yönetici yetkisi gerekiyor.',403);result=(await q('SELECT id,name,city,age,coins,created FROM users ORDER BY created DESC LIMIT 500').all()).results;}
+    else if(path==='admin'&&!post){if(!(u.is_admin===1||env.ADMIN_USER_ID===u.id))fail('Yönetici yetkisi gerekiyor.',403);const users=(await q('SELECT id,name,city,age,coins,is_admin,created FROM users ORDER BY created DESC LIMIT 500').all()).results;const rooms=(await q('SELECT COUNT(*) AS count FROM rooms').first()).count;const online=(await q('SELECT COUNT(*) AS count FROM presence WHERE seen>?',now()-60).first()).count;result={summary:{users:users.length,rooms,online},users};}
     else fail('Bulunamadı.',404);
    }
    return Response.json(result,{headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
