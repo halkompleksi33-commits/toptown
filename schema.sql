@@ -12,3 +12,5 @@ CREATE TRIGGER IF NOT EXISTS presence_join AFTER INSERT ON presence BEGIN INSERT
 CREATE TRIGGER IF NOT EXISTS presence_leave AFTER DELETE ON presence BEGIN INSERT INTO messages(room_id,user_id,name,kind,text,created) SELECT OLD.room_id,OLD.user_id,name,'leave','odadan ayrıldı',unixepoch() FROM users WHERE id=OLD.user_id; END;
 CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS gifts(id TEXT PRIMARY KEY, sender TEXT NOT NULL REFERENCES users(id), recipient TEXT NOT NULL REFERENCES users(id), room_id TEXT NOT NULL REFERENCES rooms(id), gift TEXT NOT NULL, cost INTEGER NOT NULL, created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS signals(id TEXT PRIMARY KEY, room_id TEXT NOT NULL REFERENCES rooms(id), from_user TEXT NOT NULL REFERENCES users(id), to_user TEXT NOT NULL REFERENCES users(id), payload TEXT NOT NULL, created INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS signals_recipient ON signals(to_user,room_id,created);
