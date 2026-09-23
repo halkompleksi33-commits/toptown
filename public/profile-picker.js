@@ -1,0 +1,1 @@
+document.addEventListener('click',event=>{const button=event.target.closest('[data-emoji]');if(!button)return;document.querySelector('#emoji').value=button.dataset.emoji;document.querySelectorAll('[data-emoji]').forEach(item=>item.classList.toggle('selected',item===button));});

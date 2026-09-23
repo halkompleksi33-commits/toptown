@@ -1,0 +1,1 @@
+.emoji-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:16px 0}.emoji-picker button{font-size:28px;padding:9px;min-height:54px}.emoji-picker button.selected{outline:2px solid #e2beff;background:#8552c9}
