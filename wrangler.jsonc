@@ -1,0 +1,9 @@
+{
+  "name": "toptown",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-23",
+  "account_id": "1fdb507ad3a01af5747bb9301d80b679",
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  "d1_databases": [{ "binding": "DB", "database_name": "toptown-db", "database_id": "8d35aa15-085f-4f40-a591-516b8aa75b58" }],
+  "triggers": { "crons": ["* * * * *"] }
+}

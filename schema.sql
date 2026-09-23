@@ -1,0 +1,14 @@
+PRAGMA foreign_keys=ON;
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, name TEXT NOT NULL, login TEXT NOT NULL UNIQUE, city TEXT NOT NULL, age INTEGER NOT NULL CHECK(age BETWEEN 18 AND 120), salt TEXT NOT NULL, password_hash TEXT NOT NULL, coins INTEGER NOT NULL DEFAULT 0 CHECK(coins>=0), created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY, name TEXT NOT NULL, owner TEXT REFERENCES users(id), youtube TEXT, created INTEGER NOT NULL);
+INSERT OR IGNORE INTO rooms(id,name,created) VALUES('lobby','Mersin Meydanı',unixepoch());
+CREATE TABLE IF NOT EXISTS presence(user_id TEXT PRIMARY KEY REFERENCES users(id), room_id TEXT NOT NULL REFERENCES rooms(id), seat INTEGER CHECK(seat BETWEEN 0 AND 8), seen INTEGER NOT NULL, UNIQUE(room_id,seat));
+CREATE INDEX IF NOT EXISTS presence_room ON presence(room_id);
+CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT,room_id TEXT NOT NULL REFERENCES rooms(id),user_id TEXT REFERENCES users(id),name TEXT NOT NULL,kind TEXT NOT NULL,text TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS messages_room ON messages(room_id,id);
+CREATE TRIGGER IF NOT EXISTS presence_join AFTER INSERT ON presence BEGIN INSERT INTO messages(room_id,user_id,name,kind,text,created) SELECT NEW.room_id,NEW.user_id,name,'join','odaya katıldı',unixepoch() FROM users WHERE id=NEW.user_id; END;
+CREATE TRIGGER IF NOT EXISTS presence_leave AFTER DELETE ON presence BEGIN INSERT INTO messages(room_id,user_id,name,kind,text,created) SELECT OLD.room_id,OLD.user_id,name,'leave','odadan ayrıldı',unixepoch() FROM users WHERE id=OLD.user_id; END;
+CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS gifts(id TEXT PRIMARY KEY, sender TEXT NOT NULL REFERENCES users(id), recipient TEXT NOT NULL REFERENCES users(id), room_id TEXT NOT NULL REFERENCES rooms(id), gift TEXT NOT NULL, cost INTEGER NOT NULL, created INTEGER NOT NULL);
