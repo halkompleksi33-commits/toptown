@@ -1,3 +1,4 @@
 .line.chat{height:auto;overflow:visible;margin-left:0}
 #rewardButton.reward{width:100%;margin:4px 0 0;background:linear-gradient(135deg,#e26d9e,#9b63ff);border:0;font-weight:750}
 .seat.mine{position:relative}.seat-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}.seat-action{padding:4px 6px;border-radius:8px;background:#ffffff16;font-size:11px;white-space:nowrap}.seat-action:hover,.seat-action:focus{background:#ffffff2c;outline:0}
+.roomcard-rich{align-items:center;gap:10px;text-align:left}.room-image{width:54px;height:54px;flex:0 0 54px;border-radius:14px;background:#4b326e center/cover no-repeat;display:grid;place-items:center;font-size:26px}.roomcard-rich>span:last-child{display:grid;gap:4px;min-width:0}.roomcard-rich strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.room-level{font-size:12px;color:#d6b7ff}

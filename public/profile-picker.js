@@ -12,6 +12,20 @@ $('#rewardButton').onclick=safe(async()=>{
  $('#rewardButton').hidden=true;
  await home();
 });
+const rewardHome=home;
+home=async function(){
+ await rewardHome();
+ const rooms=await api('rooms');
+ $('#rooms').replaceChildren(...rooms.map(room=>{
+  const card=document.createElement('button'),image=document.createElement('span'),details=document.createElement('span'),title=document.createElement('strong'),level=document.createElement('small');
+  card.className='roomcard roomcard-rich';image.className='room-image';
+  if(room.image_url)image.style.backgroundImage='url("'+room.image_url+'")';else image.textContent='🏠';
+  title.textContent=room.name+' · '+room.online+' kişi';level.className='room-level';level.textContent='⭐ Seviye '+room.level+' · '+room.gift_xp+' / 1000 hediye XP';
+  details.append(title,level);card.append(image,details);card.onclick=safe(()=>join(room.id));return card;
+ }));
+};
+const roomImageButton=document.createElement('button');roomImageButton.id='roomImageButton';roomImageButton.textContent='🖼️ Oda görseli';document.querySelector('.tools')?.append(roomImageButton);
+roomImageButton.onclick=safe(async()=>{if(!room)throw Error('Önce bir odaya gir.');const image=prompt('Oda görseli için HTTPS bağlantısı gir. Görseli kaldırmak için boş bırak.');if(image===null)return;await api('room/profile',{image_url:image.trim()});toast(image.trim()?'Oda görseli güncellendi.':'Oda görseli kaldırıldı.');});
 const originalDraw=draw;
 draw=function(){
  originalDraw();
@@ -23,3 +37,4 @@ draw=function(){
 };
 const social=document.createElement('section');social.className='whatsnew';social.innerHTML='<span class="eyebrow">TOPLULUK</span><div class="social-actions"><button data-social="friends">🤝 Arkadaşlarım</button><button data-social="invite">✉️ Odaya davet et</button><button data-social="report">🛡️ Kullanıcı bildir</button><button data-social="store">🛍️ Rozet mağazası</button></div><p id="socialResult" class="fine"></p>';document.querySelector('#home .whatsnew')?.after(social);
 social.onclick=safe(async event=>{const action=event.target.dataset.social;if(!action)return;const output=$('#socialResult');if(action==='friends'){const friends=await api('friends');output.textContent=friends.length?friends.map(f=>f.emoji+' '+f.name+' · '+(f.status==='accepted'?'arkadaş':'istek bekliyor')).join(' | '):'Henüz arkadaşın yok. Odadaki bir kullanıcıyı bildir/davet seçenekleriyle tanıyabilirsin.';}else if(action==='invite'){if(!room)throw Error('Önce bir odaya gir.');const id=prompt('Davet edilecek kullanıcı kimliği');if(!id)return;await api('invite',{user:id,room});output.textContent='Davet gönderildi.';}else if(action==='report'){const id=prompt('Bildirilecek kullanıcı kimliği'),reason=prompt('Nedeni');if(!id||!reason)return;await api('report',{user:id,reason});output.textContent='Bildirim yönetime iletildi.';}else output.textContent='Mağaza yakında: rozetler günlük seri ve topluluk etkinlikleriyle kazanılabilir.';});
+$('#videoVisibilityButton').onclick=()=>{if(!videoId)return;videoPanelHidden=!videoPanelHidden;$('#youtube').hidden=videoPanelHidden;$('#videoVisibilityButton').textContent=videoPanelHidden?'🎥 Videoyu göster':'🎥 Videoyu gizle'};
