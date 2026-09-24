@@ -1,2 +1,3 @@
 .line.chat{height:auto;overflow:visible;margin-left:0}
 #rewardButton.reward{width:100%;margin:4px 0 0;background:linear-gradient(135deg,#e26d9e,#9b63ff);border:0;font-weight:750}
+.seat.mine{position:relative}.seat-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}.seat-action{padding:4px 6px;border-radius:8px;background:#ffffff16;font-size:11px;white-space:nowrap}.seat-action:hover,.seat-action:focus{background:#ffffff2c;outline:0}

@@ -12,5 +12,14 @@ $('#rewardButton').onclick=safe(async()=>{
  $('#rewardButton').hidden=true;
  await home();
 });
+const originalDraw=draw;
+draw=function(){
+ originalDraw();
+ $('#mic').hidden=true;$('#camera').hidden=true;
+ const mine=$('.seat.mine');if(!mine)return;
+ const actions=document.createElement('span');actions.className='seat-actions';
+ for(const [label,enabled] of [['🎙️ Mikrofon',false],['📹 Kamera',true]]){const control=document.createElement('span');control.className='seat-action';control.setAttribute('role','button');control.tabIndex=0;control.textContent=label;const toggle=()=>media(enabled);control.onclick=event=>{event.stopPropagation();toggle()};control.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle()}};actions.append(control)}
+ mine.append(actions);
+};
 const social=document.createElement('section');social.className='whatsnew';social.innerHTML='<span class="eyebrow">TOPLULUK</span><div class="social-actions"><button data-social="friends">🤝 Arkadaşlarım</button><button data-social="invite">✉️ Odaya davet et</button><button data-social="report">🛡️ Kullanıcı bildir</button><button data-social="store">🛍️ Rozet mağazası</button></div><p id="socialResult" class="fine"></p>';document.querySelector('#home .whatsnew')?.after(social);
 social.onclick=safe(async event=>{const action=event.target.dataset.social;if(!action)return;const output=$('#socialResult');if(action==='friends'){const friends=await api('friends');output.textContent=friends.length?friends.map(f=>f.emoji+' '+f.name+' · '+(f.status==='accepted'?'arkadaş':'istek bekliyor')).join(' | '):'Henüz arkadaşın yok. Odadaki bir kullanıcıyı bildir/davet seçenekleriyle tanıyabilirsin.';}else if(action==='invite'){if(!room)throw Error('Önce bir odaya gir.');const id=prompt('Davet edilecek kullanıcı kimliği');if(!id)return;await api('invite',{user:id,room});output.textContent='Davet gönderildi.';}else if(action==='report'){const id=prompt('Bildirilecek kullanıcı kimliği'),reason=prompt('Nedeni');if(!id||!reason)return;await api('report',{user:id,reason});output.textContent='Bildirim yönetime iletildi.';}else output.textContent='Mağaza yakında: rozetler günlük seri ve topluluk etkinlikleriyle kazanılabilir.';});
