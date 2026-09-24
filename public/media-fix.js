@@ -1,0 +1,1 @@
+const originalMedia=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);let audioOnly=false;document.querySelector('#mic').addEventListener('click',()=>audioOnly=true,true);navigator.mediaDevices.getUserMedia=constraints=>{if(audioOnly){audioOnly=false;return originalMedia({audio:true,video:false})}return originalMedia(constraints)};
