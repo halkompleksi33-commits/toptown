@@ -1,0 +1,1 @@
+document.addEventListener('DOMContentLoaded',()=>{const input=document.querySelector('#profileForm input[type=file]');if(!input)return;const preview=document.createElement('img');preview.alt='Profil görseli önizleme';preview.className='avatar-preview';input.before(preview);input.addEventListener('change',()=>{const f=input.files?.[0];if(f)preview.src=URL.createObjectURL(f)})});
