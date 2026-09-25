@@ -28,6 +28,7 @@ export function register(context) {
     let m = {
         id: ++state.messageId,
         name: q.user.name,
+        user_id: q.user.id,
         kind: "chat",
         text,
         created: now(),

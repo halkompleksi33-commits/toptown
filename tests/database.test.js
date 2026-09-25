@@ -4,6 +4,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { migrate } from "../src/database.js";
 import express from "express";
 import { register as registerEconomy } from "../src/routes/economy.js";
+import { register as registerManagement } from "../src/routes/admin-management.js";
+import { hashPassword } from "../src/security.js";
 
 test("PostgreSQL migration preserves existing users and is repeatable", async () => {
   const engine = new PGlite();
@@ -76,6 +78,35 @@ test("PostgreSQL migration preserves existing users and is repeatable", async ()
       now: Date.now,
       notice: async () => {},
     });
+    users.get("original").is_admin = true;
+    const sessionMap = new Map([
+      ["session", { userId: "recipient", expires: Date.now() + 60000 }],
+    ]);
+    await client.query(
+      "CREATE TABLE IF NOT EXISTS auth_sessions(token TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires BIGINT NOT NULL)",
+    );
+    await client.query(
+      "INSERT INTO auth_sessions(token,user_id,expires) VALUES('session','recipient',9999999999999)",
+    );
+    await client.query(
+      "INSERT INTO rooms(id,name,owner,created) VALUES('owned','Owned room','recipient',1)",
+    );
+    rooms.set("owned", { id: "owned", name: "Owned room", owner: "recipient" });
+    registerManagement({
+      app,
+      db: { ...pool, query: client.query.bind(client) },
+      users,
+      rooms,
+      presence,
+      sessions: sessionMap,
+      messages: new Map(),
+      signals: new Map(),
+      notifications: new Map(),
+      friends: new Map(),
+      fail: (r, s, e) => r.status(s).json({ error: e }),
+      key: (x) => x.toLocaleLowerCase("tr-TR"),
+      hashPassword,
+    });
     app.use((error, req, res, next) =>
       res.status(500).json({ error: error.message }),
     );
@@ -110,6 +141,64 @@ test("PostgreSQL migration preserves existing users and is repeatable", async ()
         post("reward", {}),
       ]);
       assert.deepEqual(claims.map((r) => r.status).sort(), [200, 409]);
+      const edit = await post("admin/users/recipient/update", {
+        name: "Renamed",
+        city: "İzmir",
+        age: 22,
+        password: "new-password",
+      });
+      assert.equal(edit.status, 200);
+      assert.equal(
+        (await client.query("SELECT city FROM users WHERE id='recipient'"))
+          .rows[0].city,
+        "İzmir",
+      );
+      assert.equal(
+        (
+          await client.query(
+            "SELECT * FROM auth_sessions WHERE user_id='recipient'",
+          )
+        ).rowCount,
+        0,
+      );
+      assert.equal(
+        (await post("admin/users/recipient/delete", { confirm: "recipient" }))
+          .status,
+        200,
+      );
+      assert.equal(
+        (await client.query("SELECT * FROM users WHERE id='recipient'"))
+          .rowCount,
+        0,
+      );
+      assert.equal(
+        (await client.query("SELECT owner FROM rooms WHERE id='owned'")).rows[0]
+          .owner,
+        "original",
+      );
+      assert.equal(
+        (
+          await post("admin/rooms/owned/update", {
+            name: "Edited room",
+            owner: "original",
+            locked: true,
+          })
+        ).status,
+        200,
+      );
+      assert.equal(
+        (await client.query("SELECT locked FROM rooms WHERE id='owned'"))
+          .rows[0].locked,
+        true,
+      );
+      assert.equal(
+        (await post("admin/rooms/owned/delete", { confirm: "owned" })).status,
+        200,
+      );
+      assert.equal(
+        (await client.query("SELECT * FROM rooms WHERE id='owned'")).rowCount,
+        0,
+      );
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }

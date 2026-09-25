@@ -7,6 +7,7 @@ import { register as registerPlaylist } from "./src/routes/playlist.js";
 import { register as registerSocial } from "./src/routes/social.js";
 import { register as registerModeration } from "./src/routes/moderation.js";
 import { register as registerAdmin } from "./src/routes/admin.js";
+import { register as registerAdminManagement } from "./src/routes/admin-management.js";
 import { register as registerImages } from "./src/routes/images.js";
 import { register as registerLevels } from "./src/routes/levels.js";
 import { migrate } from "./src/database.js";
@@ -130,6 +131,7 @@ async function roomEvent(roomId, user, kind, text) {
   const entry = {
     id: ++state.messageId,
     name: user.name,
+    user_id: user.id,
     kind,
     text,
     created: now(),
@@ -201,6 +203,7 @@ async function boot() {
       a.push({
         id: +m.id,
         name: m.name,
+        user_id: m.user_id,
         kind: m.kind,
         text: m.text,
         created: +m.created,
@@ -300,6 +303,7 @@ registerPlaylist(services);
 registerSocial(services);
 registerModeration(services);
 registerAdmin(services);
+registerAdminManagement(services);
 registerImages(services);
 app.get("/api/room/owners", (q, r) =>
   r.json({

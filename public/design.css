@@ -855,3 +855,33 @@ dialog::backdrop {
     transform: translateY(-50%);
   }
 }
+.admin-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.admin-actions button {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+.admin-actions .danger {
+  background: #ff75851a;
+  color: #ff8295;
+  border-color: #ff758533;
+}
+.command-list article > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.command-list em {
+  display: block;
+  margin-top: 5px;
+}
+@media (max-width: 420px) {
+  .command-list article {
+    flex-wrap: wrap;
+  }
+  .admin-actions {
+    width: 100%;
+  }
+}

@@ -31,7 +31,20 @@ async function api(p, b) {
     d = await r.json().catch(() => ({
       error: "Sunucudan geçersiz yanıt alındı. Lütfen tekrar deneyin.",
     }));
-  if (!r.ok) throw Error(d.error || "Bağlantı sorunu");
+  if (!r.ok) {
+    if (r.status === 401 && !["login", "register"].includes(p)) {
+      stop();
+      room = null;
+      user = null;
+      token = "";
+      clearInterval(homeTimer);
+      sessionStorage.removeItem("toptown-session");
+      show("auth");
+    }
+    throw Object.assign(Error(d.error || "Bağlantı sorunu"), {
+      status: r.status,
+    });
+  }
   return d;
 }
 function show(x) {
@@ -205,6 +218,10 @@ async function refresh() {
     await signals();
   } catch (x) {
     $("#connection").textContent = x.message;
+    if (x.status === 409 && user) {
+      toast("Oda kapatıldı veya odadan ayrıldınız.");
+      await home();
+    }
   } finally {
     polling = false;
   }
