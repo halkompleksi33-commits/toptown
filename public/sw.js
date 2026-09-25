@@ -1,4 +1,4 @@
-const CACHE = "toptown-v19";
+const CACHE = "toptown-v020";
 const OFFLINE = "/offline.html";
 self.addEventListener("install", (event) => {
   event.waitUntil(

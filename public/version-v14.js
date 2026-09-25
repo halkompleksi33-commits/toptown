@@ -1,12 +1,12 @@
 // Single release label and welcome identity.
 const applyRelease = () => {
-  document.title = "TopTown — Birlikte daha güzel";
+  document.title = "TopTown v020 — Birlikte daha güzel";
   document
     .querySelectorAll(".brand small")
-    .forEach((el) => (el.textContent = "v19"));
+    .forEach((el) => (el.textContent = "v020"));
   document
     .querySelectorAll(".eyebrow")
-    .forEach((el) => (el.textContent = el.textContent.replace(/v\d+/g, "v19")));
+    .forEach((el) => (el.textContent = el.textContent.replace(/v\d+/g, "v020")));
   document
     .querySelectorAll(".feature-flow h2")
     .forEach((el) => (el.textContent = "TopTown’da neler var?"));

@@ -260,7 +260,7 @@ app.use(express.static("public"));
 app.get("/api/health", (_, r) =>
   r.json({
     ok: true,
-    version: "v19",
+    version: "v020",
     runtime: "node",
     rooms: rooms.size,
     persistence: !!db,
