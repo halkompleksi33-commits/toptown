@@ -1,1 +1,23 @@
-{"name":"toptown-node","private":true,"type":"module","scripts":{"dev":"node server.js","start":"node server.js"},"dependencies":{"express":"^5.1.0","pg":"^8.23.0"}}
+{
+  "name": "toptown-node",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test tests/security.test.js tests/database.test.js",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
+    "prettier": "^3.9.9"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

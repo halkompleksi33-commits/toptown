@@ -1,1 +1,48 @@
-(()=>{const $=s=>document.querySelector(s),token=()=>sessionStorage.getItem('toptown-session')||'',api=async(p,b)=>{let r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token()},body:b?JSON.stringify(b):undefined}),d=await r.json();if(!r.ok)throw Error(d.error||'İşlem yapılamadı');return d},toast=t=>{let x=$('#toast');x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,3500)};async function add(){let tools=$('.tools'),roomPanel=$('#room');if(!tools||roomPanel.hidden||tools.querySelector('#roomImageButton'))return;try{let[s,me]=await Promise.all([api('state?after=0'),api('me')]);if(s.room.owner!==me.user.id)return;let b=document.createElement('button');b.id='roomImageButton';b.textContent='🖼️ Oda görselini değiştir';let input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp';input.hidden=true;tools.append(b,input);b.onclick=()=>input.click();input.onchange=async()=>{let file=input.files[0];if(!file)return;if(file.size>145000)return toast('Görsel en fazla 145 KB olmalı.');try{let image=await new Promise((ok,no)=>{let r=new FileReader;r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});await api('room/image',{room:s.room.id,image});toast('Oda görseli güncellendi.')}catch(x){toast(x.message)}}}catch{}}setInterval(()=>add(),800)})();
+(() => {
+  const tools = document.querySelector(".tools");
+  if (!tools) return;
+  const button = document.createElement("button");
+  button.id = "roomImageButton";
+  button.textContent = "🖼️ Oda kapağı";
+  button.hidden = true;
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/png,image/jpeg,image/webp";
+  input.hidden = true;
+  tools.append(button, input);
+  button.onclick = () => input.click();
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024)
+      return toast("Görsel en fazla 10 MB olabilir.");
+    button.disabled = true;
+    try {
+      const state = await api("state?after=0");
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 360;
+      const scale = Math.max(640 / bitmap.width, 360 / bitmap.height);
+      canvas
+        .getContext("2d")
+        .drawImage(
+          bitmap,
+          (640 - bitmap.width * scale) / 2,
+          (360 - bitmap.height * scale) / 2,
+          bitmap.width * scale,
+          bitmap.height * scale,
+        );
+      bitmap.close();
+      let image = canvas.toDataURL("image/jpeg", 0.75);
+      if (image.length > 190000) image = canvas.toDataURL("image/jpeg", 0.45);
+      await api("room/image", { room: state.room.id, image });
+      toast("Oda kapağın güncellendi.");
+    } catch (error) {
+      toast(error.message || "Görsel yüklenemedi.");
+    } finally {
+      button.disabled = false;
+      input.value = "";
+    }
+  };
+})();

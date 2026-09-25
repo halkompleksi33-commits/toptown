@@ -1,23 +1,329 @@
-import express from'express';import{createServer}from'node:http';import pg from'pg';import{randomUUID,createHash}from'node:crypto';
-const app=express(),server=createServer(app),db=process.env.DATABASE_URL?new pg.Pool({connectionString:process.env.DATABASE_URL}):null,users=new Map(),sessions=new Map(),rooms=new Map(),presence=new Map(),messages=new Map(),signals=new Map(),notifications=new Map(),friends=new Map();let messageId=0;
-const hash=x=>createHash('sha256').update(String(x)).digest('hex'),key=x=>String(x||'').trim().toLocaleLowerCase('tr-TR'),fail=(r,s,e)=>r.status(s).json({error:e}),me=q=>users.get(sessions.get((q.get('authorization')||'').replace(/^Bearer /,''))),now=()=>Date.now(),prof=u=>({id:u.id,name:u.name,emoji:u.emoji||'🙂',city:u.city,age:u.age,coins:u.coins,avatar:u.avatar||'',xp:u.xp||0,level:1+Math.floor((u.xp||0)/1000)}),yt=x=>x?(String(x).match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)||[])[1]:null;
-const save=async u=>{if(db)await db.query('INSERT INTO users(id,name,login,city,age,password,coins,emoji,avatar,xp) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,city=EXCLUDED.city,age=EXCLUDED.age,password=EXCLUDED.password,coins=EXCLUDED.coins,emoji=EXCLUDED.emoji,avatar=EXCLUDED.avatar,xp=EXCLUDED.xp',[u.id,u.name,u.login,u.city,u.age,u.password,u.coins,u.emoji,u.avatar||'',u.xp||0])};
-const notice=async(id,text)=>{let n={id:randomUUID(),text,created:now()},a=notifications.get(id)||[];a.unshift(n);notifications.set(id,a.slice(0,100));if(db)await db.query('INSERT INTO notifications(id,user_id,text,created) VALUES($1,$2,$3,$4)',[n.id,id,n.text,n.created])};
-const people=id=>[...presence].filter(([,p])=>p.room===id).map(([id,p])=>users.has(id)?{...prof(users.get(id)),seat:p.seat,muted:!!p.muted}:null).filter(Boolean),inRoom=(id,room)=>presence.get(id)?.room===room;
-const windows=new Map(),rateLimit=(q,r,n)=>{const id=q.ip||q.socket.remoteAddress||'unknown',at=now(),row=windows.get(id)||{at,count:0};if(at-row.at>60000){row.at=at;row.count=0}row.count++;windows.set(id,row);if(row.count>120)return fail(r,429,'Çok fazla istek gönderildi. Lütfen kısa süre bekleyin.');n()};setInterval(()=>{const at=now();for(const[id,row]of windows)if(at-row.at>120000)windows.delete(id)},60000).unref();
-async function boot(){if(db){await db.query("CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,name TEXT NOT NULL,login TEXT UNIQUE NOT NULL,city TEXT NOT NULL,age INTEGER NOT NULL,password TEXT NOT NULL,coins INTEGER NOT NULL,emoji TEXT NOT NULL,avatar TEXT NOT NULL DEFAULT '',xp INTEGER NOT NULL DEFAULT 0);CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY,name TEXT NOT NULL,owner TEXT NOT NULL,youtube TEXT,locked BOOLEAN NOT NULL DEFAULT false,created BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS messages(id BIGINT PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,name TEXT NOT NULL,kind TEXT NOT NULL,text TEXT NOT NULL,created BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY,reporter TEXT NOT NULL,target TEXT,room_id TEXT,reason TEXT NOT NULL,created BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS friends(user_id TEXT NOT NULL,friend_id TEXT NOT NULL,PRIMARY KEY(user_id,friend_id));CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,text TEXT NOT NULL,created BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS gift_history(id TEXT PRIMARY KEY,sender TEXT NOT NULL,recipient TEXT NOT NULL,gift TEXT NOT NULL,cost INTEGER NOT NULL,created BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS daily_rewards(user_id TEXT PRIMARY KEY,last_claim BIGINT NOT NULL,streak INTEGER NOT NULL);CREATE TABLE IF NOT EXISTS room_playlist(id TEXT PRIMARY KEY,room_id TEXT NOT NULL,video_id TEXT NOT NULL,added_by TEXT NOT NULL,position INTEGER NOT NULL,created BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS bans(id TEXT PRIMARY KEY,room_id TEXT NOT NULL,user_id TEXT NOT NULL,by_user TEXT NOT NULL,reason TEXT NOT NULL,created BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS direct_messages(id TEXT PRIMARY KEY,sender TEXT NOT NULL,recipient TEXT NOT NULL,text TEXT NOT NULL,created BIGINT NOT NULL);ALTER TABLE rooms ADD COLUMN IF NOT EXISTS private_room BOOLEAN NOT NULL DEFAULT false;ALTER TABLE rooms ADD COLUMN IF NOT EXISTS code_hash TEXT;ALTER TABLE rooms ADD COLUMN IF NOT EXISTS banned_words TEXT NOT NULL DEFAULT ''");let a={id:randomUUID(),name:'admin',login:'admin',city:'Mersin',age:18,password:hash('4321'),coins:1000,emoji:'🛡️',avatar:'',xp:0};await db.query('INSERT INTO users(id,name,login,city,age,password,coins,emoji,avatar,xp) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(login) DO NOTHING',[a.id,a.name,a.login,a.city,a.age,a.password,a.coins,a.emoji,'',0]);for(const u of(await db.query('SELECT * FROM users')).rows)users.set(u.id,{...u,is_admin:u.login==='admin'});for(const r of(await db.query('SELECT id,name,owner,youtube,locked,private_room,code_hash,banned_words FROM rooms ORDER BY created')).rows){rooms.set(r.id,r);messages.set(r.id,[])}for(const m of(await db.query('SELECT * FROM messages ORDER BY id')).rows){let a=messages.get(m.room_id)||[];a.push({id:+m.id,name:m.name,kind:m.kind,text:m.text,created:+m.created});messages.set(m.room_id,a);messageId=Math.max(messageId,+m.id)}for(const n of(await db.query('SELECT * FROM notifications ORDER BY created DESC')).rows){let a=notifications.get(n.user_id)||[];a.push({id:n.id,text:n.text,created:+n.created});notifications.set(n.user_id,a)}for(const f of(await db.query('SELECT * FROM friends')).rows){let a=friends.get(f.user_id)||new Set();a.add(f.friend_id);friends.set(f.user_id,a)}}else{let a={id:randomUUID(),name:'admin',login:'admin',city:'Mersin',age:18,password:hash('4321'),coins:1000,emoji:'🛡️',avatar:'',xp:0,is_admin:true};users.set(a.id,a)}server.listen(process.env.PORT||3000,()=>console.log('TopTown Node.js ready'))}
-app.disable('x-powered-by');app.use((q,r,n)=>{r.set({'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','Permissions-Policy':'camera=(self), microphone=(self)'});n()});app.use(express.json({limit:'200kb'}));app.use('/api',rateLimit);app.use(express.static('public'));app.get('/api/health',(_,r)=>r.json({ok:true,runtime:'node',rooms:rooms.size,persistence:!!db}));
-app.post('/api/register',async(q,r)=>{let b=q.body||{},login=key(b.name);if(login.length<2||!String(b.city||'').trim()||+b.age<18||+b.age>120||String(b.password||'').length<4)return fail(r,400,'Alanları kontrol edin.');if([...users.values()].some(u=>u.login===login))return fail(r,409,'Bu isim kullanılıyor.');let u={id:randomUUID(),name:String(b.name).trim(),login,city:String(b.city).trim(),age:+b.age,password:hash(b.password),coins:1000,emoji:'🙂',avatar:'',xp:0};try{await save(u)}catch{return fail(r,409,'Bu isim kullanılıyor.')}users.set(u.id,u);let t=randomUUID()+randomUUID();sessions.set(t,u.id);r.json({token:t,user:prof(u)})});app.post('/api/login',(q,r)=>{let u=[...users.values()].find(x=>x.login===key(q.body?.name));if(!u||u.password!==hash(q.body?.password||''))return fail(r,401,'İsim veya şifre hatalı.');let t=randomUUID()+randomUUID();sessions.set(t,u.id);r.json({token:t,user:prof(u)})});app.use('/api',(q,r,n)=>{if(['/health','/login','/register'].includes(q.path))return n();q.user=me(q);if(!q.user)return fail(r,401,'Oturum sona erdi. Tekrar giriş yapın.');n()});
-app.get('/api/me',(q,r)=>r.json({user:prof(q.user),admin:!!q.user.is_admin}));app.get('/api/rooms',(_,r)=>{r.set('Cache-Control','no-store');r.json([...rooms.values()].map(x=>({id:x.id,name:x.name,owner:x.owner,locked:x.locked,private_room:x.private_room,online:people(x.id).length}))) });app.post('/api/rooms',async(q,r)=>{let name=String(q.body?.name||'').trim(),private_room=!!q.body?.private_room,code=String(q.body?.code||'');if(name.length<2)return fail(r,400,'Oda adı gerekli.');if(private_room&&code.length<4)return fail(r,400,'Özel oda şifresi en az 4 karakter olmalı.');let x={id:randomUUID(),name,owner:q.user.id,youtube:null,locked:false,private_room,code_hash:private_room?hash(code):null,banned_words:''};if(db)await db.query('INSERT INTO rooms(id,name,owner,youtube,locked,created,private_room,code_hash,banned_words) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[x.id,x.name,x.owner,null,false,now(),x.private_room,x.code_hash,'']);rooms.set(x.id,x);messages.set(x.id,[]);r.json({id:x.id})});
-app.post('/api/join',async(q,r)=>{let x=rooms.get(q.body?.room);if(!x)return fail(r,404,'Oda bulunamadı.');if(db&&(await db.query('SELECT 1 FROM bans WHERE room_id=$1 AND user_id=$2 LIMIT 1',[x.id,q.user.id])).rowCount)return fail(r,403,'Bu odadan yasaklandınız.');if(x.locked&&x.owner!==q.user.id)return fail(r,403,'Oda sahibi koltukları kilitledi.');if(x.private_room&&x.owner!==q.user.id&&x.code_hash!==hash(q.body?.code||''))return fail(r,403,'Bu özel oda için şifre gerekli.');presence.set(q.user.id,{room:x.id,seat:null,muted:false});await notice(q.user.id,'“'+x.name+'” odasına giriş yaptın.');r.json({ok:true})});app.post('/api/leave',(q,r)=>{presence.delete(q.user.id);r.json({ok:true})});app.get('/api/state',(q,r)=>{let p=presence.get(q.user.id),x=rooms.get(p?.room);if(!x)return fail(r,409,'Önce bir odaya katılın.');let after=+q.query.after||0;r.json({room:{...x,code_hash:undefined,banned_words:undefined},people:people(x.id),messages:(messages.get(x.id)||[]).filter(m=>m.id>after),coins:q.user.coins})});
-app.post('/api/message',async(q,r)=>{let p=presence.get(q.user.id),text=String(q.body?.text||'').trim(),x=rooms.get(p?.room);if(!p||!text)return fail(r,400,'Önce odaya katılıp mesaj yazın.');if(p.muted)return fail(r,403,'Oda sahibi seni susturdu.');let words=String(x?.banned_words||'').split(',').map(y=>y.trim().toLocaleLowerCase('tr-TR')).filter(Boolean);if(words.some(w=>text.toLocaleLowerCase('tr-TR').includes(w)))return fail(r,400,'Mesaj küfür filtresine takıldı.');let m={id:++messageId,name:q.user.name,kind:'chat',text,created:now()},a=messages.get(p.room)||[];a.push(m);messages.set(p.room,a);if(db)await db.query('INSERT INTO messages(id,room_id,user_id,name,kind,text,created) VALUES($1,$2,$3,$4,$5,$6,$7)',[m.id,p.room,q.user.id,m.name,m.kind,m.text,m.created]);r.json({ok:true})});app.post('/api/seat',(q,r)=>{let p=presence.get(q.user.id),seat=q.body?.seat;if(!p)return fail(r,409,'Önce odaya katılın.');if(p.muted&&seat!==null)return fail(r,403,'Susturulduğun için koltuğa oturamazsın.');if(seat!==null&&(!Number.isInteger(seat)||seat<0||seat>8))return fail(r,400,'Geçersiz koltuk.');if(seat!==null&&people(p.room).some(x=>x.seat===seat))return fail(r,409,'Koltuk dolu.');p.seat=seat;r.json({ok:true})});app.post('/api/profile',async(q,r)=>{q.user.emoji=String(q.body?.emoji||'🙂').slice(0,8);if(typeof q.body?.avatar==='string'&&q.body.avatar.length<=200000)q.user.avatar=q.body.avatar;await save(q.user);r.json({user:prof(q.user)})});
-app.post('/api/gift',async(q,r)=>{let costs={rose:30,cake:120,rocket:300,crown:800},gift=String(q.body?.gift||''),cost=costs[gift],to=users.get(String(q.body?.recipient||''));if(!cost||!to||to.id===q.user.id||!inRoom(to.id,presence.get(q.user.id)?.room))return fail(r,400,'Hediye alıcısını odadan seçin.');if(q.user.coins<cost)return fail(r,400,'Yeterli jeton yok.');q.user.coins-=cost;to.coins+=cost;to.xp=(to.xp||0)+cost;q.user.xp=(q.user.xp||0)+Math.ceil(cost/2);await save(q.user);await save(to);if(db)await db.query('INSERT INTO gift_history(id,sender,recipient,gift,cost,created) VALUES($1,$2,$3,$4,$5,$6)',[randomUUID(),q.user.id,to.id,gift,cost,now()]);await notice(to.id,q.user.name+' sana '+gift+' hediyesi gönderdi.');r.json({ok:true,coins:q.user.coins})});app.get('/api/gifts/history',async(q,r)=>r.json({items:db?(await db.query('SELECT * FROM gift_history WHERE sender=$1 OR recipient=$1 ORDER BY created DESC LIMIT 100',[q.user.id])).rows:[]}));app.post('/api/reward',async(q,r)=>{let old=db?(await db.query('SELECT * FROM daily_rewards WHERE user_id=$1',[q.user.id])).rows[0]:null,day=Math.floor(now()/86400000);if(old&&Math.floor(+old.last_claim/86400000)===day)return fail(r,409,'Günlük ödül zaten alındı.');let streak=old&&Math.floor(+old.last_claim/86400000)===day-1?+old.streak+1:1,reward=100+Math.min(streak,7)*10;q.user.coins+=reward;q.user.xp=(q.user.xp||0)+25;await save(q.user);if(db)await db.query('INSERT INTO daily_rewards(user_id,last_claim,streak) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET last_claim=EXCLUDED.last_claim,streak=EXCLUDED.streak',[q.user.id,now(),streak]);r.json({ok:true,coins:q.user.coins,streak,reward})});
-app.post('/api/youtube',async(q,r)=>{let p=presence.get(q.user.id),url=String(q.body?.url||'').trim(),x=rooms.get(p?.room),id=yt(url);if(!p)return fail(r,409,'Önce odaya katılın.');if(url&&!id)return fail(r,400,'Geçerli bir YouTube bağlantısı girin.');x.youtube=id||null;if(db)await db.query('UPDATE rooms SET youtube=$1 WHERE id=$2',[x.youtube,x.id]);r.json({ok:true})});app.get('/api/playlist',async(q,r)=>{let p=presence.get(q.user.id);if(!p)return fail(r,409,'Önce bir odaya katılın.');r.json({items:db?(await db.query('SELECT * FROM room_playlist WHERE room_id=$1 ORDER BY position,created',[p.room])).rows:[]})});app.post('/api/playlist',async(q,r)=>{let p=presence.get(q.user.id),id=yt(q.body?.url);if(!p||!id)return fail(r,400,'Geçerli bir YouTube bağlantısı girin.');let pos=db?+(await db.query('SELECT COALESCE(MAX(position),0)+1 next FROM room_playlist WHERE room_id=$1',[p.room])).rows[0].next:1,item={id:randomUUID(),room:p.room,video:id,owner:q.user.id,position:pos,created:now()};if(db)await db.query('INSERT INTO room_playlist(id,room_id,video_id,added_by,position,created) VALUES($1,$2,$3,$4,$5,$6)',[item.id,item.room,item.video,item.owner,item.position,item.created]);r.json({ok:true,item})});app.post('/api/playlist/next',async(q,r)=>{let p=presence.get(q.user.id),x=rooms.get(p?.room);if(!p)return fail(r,409,'Önce bir odaya katılın.');let i=db?(await db.query('SELECT * FROM room_playlist WHERE room_id=$1 ORDER BY position,created LIMIT 1',[p.room])).rows[0]:null;if(!i)return fail(r,404,'Oynatma listesi boş.');x.youtube=i.video_id;if(db)await db.query('DELETE FROM room_playlist WHERE id=$1;UPDATE rooms SET youtube=$2 WHERE id=$3',[i.id,x.youtube,x.id]);r.json({ok:true,video:x.youtube})});
-app.get('/api/notifications',(q,r)=>r.json({items:notifications.get(q.user.id)||[]}));app.get('/api/friends',(q,r)=>r.json([...(friends.get(q.user.id)||[])].map(id=>users.get(id)).filter(Boolean).map(prof)));app.post('/api/friends',async(q,r)=>{let id=String(q.body?.user||'');if(!users.has(id)||id===q.user.id)return fail(r,400,'Geçersiz kullanıcı.');let a=friends.get(q.user.id)||new Set();a.add(id);friends.set(q.user.id,a);if(db){await db.query('INSERT INTO friends(user_id,friend_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[q.user.id,id]);await db.query('INSERT INTO friends(user_id,friend_id) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,q.user.id])}await notice(id,q.user.name+' seni arkadaş olarak ekledi.');r.json({ok:true})});app.post('/api/messages/private',async(q,r)=>{let recipient=String(q.body?.recipient||''),text=String(q.body?.text||'').trim();if(!users.has(recipient)||!text)return fail(r,400,'Alıcı ve mesaj gerekli.');if(db)await db.query('INSERT INTO direct_messages(id,sender,recipient,text,created) VALUES($1,$2,$3,$4,$5)',[randomUUID(),q.user.id,recipient,text,now()]);await notice(recipient,'Özel mesaj · '+q.user.name+': '+text);r.json({ok:true})});app.get('/api/messages/private',async(q,r)=>{let id=String(q.query.with||'');if(!id)return fail(r,400,'Kullanıcı gerekli.');let items=db?(await db.query('SELECT * FROM direct_messages WHERE (sender=$1 AND recipient=$2) OR (sender=$2 AND recipient=$1) ORDER BY created DESC LIMIT 100',[q.user.id,id])).rows:[];r.json({items:items.reverse()})});
-app.post('/api/report',async(q,r)=>{let p=presence.get(q.user.id),reason=String(q.body?.reason||'').trim(),target=String(q.body?.target||'')||null;if(!reason)return fail(r,400,'Rapor nedeni gerekli.');if(db)await db.query('INSERT INTO reports(id,reporter,target,room_id,reason,created) VALUES($1,$2,$3,$4,$5,$6)',[randomUUID(),q.user.id,target,p?.room||null,reason,now()]);r.json({ok:true})});app.post('/api/room/moderate',async(q,r)=>{let p=presence.get(q.user.id),x=rooms.get(p?.room),action=String(q.body?.action||''),target=String(q.body?.target||'');if(!x||x.owner!==q.user.id)return fail(r,403,'Yalnızca oda sahibi yönetebilir.');if(action==='lock'){x.locked=!x.locked;if(db)await db.query('UPDATE rooms SET locked=$1 WHERE id=$2',[x.locked,x.id]);return r.json({ok:true,locked:x.locked})}if(!target||target===q.user.id||!inRoom(target,x.id))return fail(r,400,'Kullanıcı odada değil.');if(action==='kick')presence.delete(target);else if(action==='mute')presence.get(target).muted=!presence.get(target).muted;else if(action==='ban'){presence.delete(target);if(db)await db.query('INSERT INTO bans(id,room_id,user_id,by_user,reason,created) VALUES($1,$2,$3,$4,$5,$6)',[randomUUID(),x.id,target,q.user.id,String(q.body?.reason||'Oda sahibi tarafından yasaklandı'),now()])}else return fail(r,400,'Geçersiz işlem.');await notice(target,x.name+': '+(action==='mute'?'susturuldun':action==='kick'?'odadan atıldın':'yasaklandın')+'.');r.json({ok:true})});app.post('/api/room/policy',async(q,r)=>{let p=presence.get(q.user.id),x=rooms.get(p?.room);if(!x||x.owner!==q.user.id)return fail(r,403,'Yalnızca oda sahibi yönetebilir.');let words=String(q.body?.banned_words||'').slice(0,1000),code=String(q.body?.code||'');x.banned_words=words;if(typeof q.body?.private_room==='boolean')x.private_room=q.body.private_room;if(code){if(code.length<4)return fail(r,400,'Şifre en az 4 karakter olmalı.');x.code_hash=hash(code);x.private_room=true}if(!x.private_room)x.code_hash=null;if(db)await db.query('UPDATE rooms SET private_room=$1,code_hash=$2,banned_words=$3 WHERE id=$4',[x.private_room,x.code_hash,x.banned_words,x.id]);r.json({ok:true})});
-app.post('/api/logout',(q,r)=>{presence.delete(q.user.id);r.json({ok:true})});app.get('/api/signal',(q,r)=>{let a=signals.get(q.user.id)||[];signals.set(q.user.id,[]);r.json(a)});app.post('/api/signal',(q,r)=>{let to=String(q.body?.to||''),payload=q.body?.payload,a=presence.get(q.user.id),b=presence.get(to);if(!payload||!to||!a||a.room!==b?.room)return fail(r,400,'Sinyal alıcısı odada değil.');let x=signals.get(to)||[];x.push({from:q.user.id,payload});signals.set(to,x);r.json({ok:true})});app.get('/api/admin',(q,r)=>q.user.is_admin?r.json({summary:{users:users.size,rooms:rooms.size,online:presence.size},users:[...users.values()].map(u=>({...prof(u),is_admin:u.is_admin}))}):fail(r,403,'Yönetici yetkisi gerekiyor.'));app.get('/api/admin/reports',async(q,r)=>{if(!q.user.is_admin)return fail(r,403,'Yönetici yetkisi gerekiyor.');r.json({reports:db?(await db.query('SELECT * FROM reports ORDER BY created DESC LIMIT 100')).rows:[]})});app.get('/api/admin/bans',async(q,r)=>{if(!q.user.is_admin)return fail(r,403,'Yönetici yetkisi gerekiyor.');r.json({bans:db?(await db.query('SELECT * FROM bans ORDER BY created DESC LIMIT 100')).rows:[]})});
-app.post('/api/room/image',async(q,r)=>{let room=rooms.get(String(q.body?.room||'')),image=String(q.body?.image||'');if(!room||room.owner!==q.user.id)return fail(r,403,'Yalnızca oda sahibi görsel ekleyebilir.');if(!/^data:image\/(png|jpeg|webp);base64,/.test(image)||image.length>200000)return fail(r,400,'PNG, JPEG veya WebP görseli en fazla 150 KB olmalı.');if(db){await db.query('CREATE TABLE IF NOT EXISTS room_images(room_id TEXT PRIMARY KEY,image TEXT NOT NULL,updated BIGINT NOT NULL)');await db.query('INSERT INTO room_images(room_id,image,updated) VALUES($1,$2,$3) ON CONFLICT(room_id) DO UPDATE SET image=EXCLUDED.image,updated=EXCLUDED.updated',[room.id,image,now()])}room.image=image;r.json({ok:true})});app.get('/api/room/images',async(q,r)=>{let items=db?(await db.query('SELECT r.name,i.image FROM room_images i JOIN rooms r ON r.id=i.room_id ORDER BY i.updated DESC')).rows:[...rooms.values()].filter(x=>x.image).map(x=>({name:x.name,image:x.image}));r.json({items})});
-app.get('/api/room/owners',(q,r)=>r.json({items:[...rooms.values()].map(x=>({name:x.name,owner:users.get(x.owner)?.name||'Bilinmiyor'}))}));
-app.get('/api/room/levels',async(q,r)=>{if(!db)return r.json({items:[...rooms.values()].map(x=>({id:x.id,name:x.name,xp:x.xp||0,level:1+Math.floor((x.xp||0)/1000)}))});await db.query('CREATE TABLE IF NOT EXISTS room_levels(room_id TEXT PRIMARY KEY,xp INTEGER NOT NULL DEFAULT 0)');let items=(await db.query('SELECT r.id,r.name,COALESCE(l.xp,0) xp FROM rooms r LEFT JOIN room_levels l ON l.room_id=r.id ORDER BY r.created')).rows.map(x=>({...x,xp:+x.xp,level:1+Math.floor(+x.xp/1000)}));r.json({items})});app.post('/api/room/xp',async(q,r)=>{let p=presence.get(q.user.id),room=rooms.get(p?.room),gift=String(q.body?.gift||'');if(!room)return fail(r,409,'Önce odaya katılın.');let gain={rose:30,cake:120,rocket:300,crown:800}[gift];if(!gain)return fail(r,400,'Geçersiz hediye.');if(db){await db.query('CREATE TABLE IF NOT EXISTS room_levels(room_id TEXT PRIMARY KEY,xp INTEGER NOT NULL DEFAULT 0);ALTER TABLE gift_history ADD COLUMN IF NOT EXISTS room_xp_applied BOOLEAN NOT NULL DEFAULT false');let g=await db.query('UPDATE gift_history SET room_xp_applied=true WHERE id=(SELECT id FROM gift_history WHERE sender=$1 AND gift=$2 AND room_xp_applied=false ORDER BY created DESC LIMIT 1) RETURNING cost',[q.user.id,gift]);if(!g.rowCount)return fail(r,409,'Bu hediye için oda XP zaten işlendi.');gain=+g.rows[0].cost;let row=(await db.query('INSERT INTO room_levels(room_id,xp) VALUES($1,$2) ON CONFLICT(room_id) DO UPDATE SET xp=room_levels.xp+EXCLUDED.xp RETURNING xp',[room.id,gain])).rows[0];return r.json({ok:true,xp:+row.xp,level:1+Math.floor(+row.xp/1000),gain})}room.xp=(room.xp||0)+gain;r.json({ok:true,xp:room.xp,level:1+Math.floor(room.xp/1000),gain})});
-app.use('/api',(q,r)=>fail(r,404,'API yolu bulunamadı.'));app.use((e,q,r,n)=>{console.error('API error',e);if(q.path?.startsWith('/api/'))return fail(r,500,'Sunucu isteği işleyemedi.');n(e)});
-(async()=>{if(db)await db.query('CREATE TABLE IF NOT EXISTS room_images(room_id TEXT PRIMARY KEY,image TEXT NOT NULL,updated BIGINT NOT NULL)');await boot()})().catch(e=>{console.error('PostgreSQL başlatılamadı',e);process.exit(1)});
+import { register as registerAuth } from "./src/routes/auth.js";
+import { register as registerRooms } from "./src/routes/rooms.js";
+import { register as registerPresence } from "./src/routes/presence.js";
+import { register as registerChat } from "./src/routes/chat.js";
+import { register as registerEconomy } from "./src/routes/economy.js";
+import { register as registerPlaylist } from "./src/routes/playlist.js";
+import { register as registerSocial } from "./src/routes/social.js";
+import { register as registerModeration } from "./src/routes/moderation.js";
+import { register as registerAdmin } from "./src/routes/admin.js";
+import { register as registerImages } from "./src/routes/images.js";
+import { register as registerLevels } from "./src/routes/levels.js";
+import { migrate } from "./src/database.js";
+import {
+  hashPassword,
+  verifyPassword,
+  createAuthLimiter,
+} from "./src/security.js";
+import express from "express";
+import { createServer } from "node:http";
+import pg from "pg";
+import { randomUUID, createHash } from "node:crypto";
+const app = express(),
+  server = createServer(app),
+  db = process.env.DATABASE_URL
+    ? new pg.Pool({ connectionString: process.env.DATABASE_URL })
+    : null,
+  users = new Map(),
+  sessions = new Map(),
+  rooms = new Map(),
+  presence = new Map(),
+  messages = new Map(),
+  signals = new Map(),
+  notifications = new Map(),
+  friends = new Map();
+const state = { messageId: 0 };
+const hash = (x) => createHash("sha256").update(String(x)).digest("hex"),
+  key = (x) =>
+    String(x || "")
+      .trim()
+      .toLocaleLowerCase("tr-TR"),
+  fail = (r, s, e) => r.status(s).json({ error: e }),
+  me = (q) => sessionUser(q),
+  now = () => Date.now(),
+  prof = (u) => ({
+    id: u.id,
+    name: u.name,
+    emoji: u.emoji || "🙂",
+    city: u.city,
+    age: u.age,
+    coins: u.coins,
+    avatar: u.avatar || "",
+    xp: u.xp || 0,
+    level: 1 + Math.floor((u.xp || 0) / 1000),
+  }),
+  yt = (x) =>
+    x
+      ? (String(x).match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/) || [])[1]
+      : null;
+const save = async (u) => {
+  if (db)
+    await db.query(
+      "INSERT INTO users(id,name,login,city,age,password,coins,emoji,avatar,xp) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,city=EXCLUDED.city,age=EXCLUDED.age,password=EXCLUDED.password,coins=EXCLUDED.coins,emoji=EXCLUDED.emoji,avatar=EXCLUDED.avatar,xp=EXCLUDED.xp",
+      [
+        u.id,
+        u.name,
+        u.login,
+        u.city,
+        u.age,
+        u.password,
+        u.coins,
+        u.emoji,
+        u.avatar || "",
+        u.xp || 0,
+      ],
+    );
+};
+const notice = async (id, text) => {
+  let n = { id: randomUUID(), text, created: now() },
+    a = notifications.get(id) || [];
+  a.unshift(n);
+  notifications.set(id, a.slice(0, 100));
+  if (db)
+    await db.query(
+      "INSERT INTO notifications(id,user_id,text,created) VALUES($1,$2,$3,$4)",
+      [n.id, id, n.text, n.created],
+    );
+};
+const people = (id) =>
+    [...presence]
+      .filter(([, p]) => p.room === id)
+      .map(([id, p]) =>
+        users.has(id)
+          ? { ...prof(users.get(id)), seat: p.seat, muted: !!p.muted }
+          : null,
+      )
+      .filter(Boolean),
+  inRoom = (id, room) => presence.get(id)?.room === room;
+const SESSION_AGE = 7 * 24 * 60 * 60 * 1000;
+async function issueSession(user) {
+  const token = randomUUID() + randomUUID(),
+    record = { userId: user.id, expires: now() + SESSION_AGE };
+  if (db)
+    await db.query(
+      "INSERT INTO auth_sessions(token,user_id,expires) VALUES($1,$2,$3)",
+      [token, record.userId, record.expires],
+    );
+  sessions.set(token, record);
+  return token;
+}
+function sessionUser(req) {
+  const token = (req.get("authorization") || "").replace(/^Bearer /, ""),
+    record = sessions.get(token);
+  if (!record || record.expires < now()) {
+    sessions.delete(token);
+    return null;
+  }
+  return users.get(record.userId);
+}
+async function restoreSessions() {
+  if (!db) return;
+  await db.query(
+    "CREATE TABLE IF NOT EXISTS auth_sessions(token TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires BIGINT NOT NULL)",
+  );
+  await db.query("DELETE FROM auth_sessions WHERE expires<$1", [now()]);
+  for (const row of (await db.query("SELECT * FROM auth_sessions")).rows)
+    sessions.set(row.token, { userId: row.user_id, expires: +row.expires });
+}
+async function roomEvent(roomId, user, kind, text) {
+  if (!user) return;
+  const entry = {
+    id: ++state.messageId,
+    name: user.name,
+    kind,
+    text,
+    created: now(),
+  };
+  if (db)
+    await db.query(
+      "INSERT INTO messages(id,room_id,user_id,name,kind,text,created) VALUES($1,$2,$3,$4,$5,$6,$7)",
+      [entry.id, roomId, user.id, entry.name, kind, text, entry.created],
+    );
+  const history = messages.get(roomId) || [];
+  history.push(entry);
+  messages.set(roomId, history);
+}
+async function leaveRoom(userId) {
+  const p = presence.get(userId);
+  if (!p) return;
+  presence.delete(userId);
+  signals.delete(userId);
+  await roomEvent(p.room, users.get(userId), "leave", "odadan ayrıldı.");
+}
+setInterval(() => {
+  for (const [id, p] of presence)
+    if (now() - (p.seen || 0) > 60000) leaveRoom(id).catch(console.error);
+}, 15000).unref();
+
+async function boot() {
+  if (db) {
+    await migrate(db);
+    let a = {
+      id: randomUUID(),
+      name: "admin",
+      login: "admin",
+      city: "Mersin",
+      age: 18,
+      password: await hashPassword(process.env.ADMIN_PASSWORD || randomUUID()),
+      coins: 1000,
+      emoji: "🛡️",
+      avatar: "",
+      xp: 0,
+    };
+    await db.query(
+      "INSERT INTO users(id,name,login,city,age,password,coins,emoji,avatar,xp) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(login) DO NOTHING",
+      [
+        a.id,
+        a.name,
+        a.login,
+        a.city,
+        a.age,
+        a.password,
+        a.coins,
+        a.emoji,
+        "",
+        0,
+      ],
+    );
+    for (const u of (await db.query("SELECT * FROM users")).rows)
+      users.set(u.id, { ...u, is_admin: u.login === "admin" });
+    for (const r of (
+      await db.query(
+        "SELECT id,name,owner,youtube,locked,private_room,code_hash,banned_words FROM rooms ORDER BY created",
+      )
+    ).rows) {
+      rooms.set(r.id, r);
+      messages.set(r.id, []);
+    }
+    for (const m of (await db.query("SELECT * FROM messages ORDER BY id"))
+      .rows) {
+      let a = messages.get(m.room_id) || [];
+      a.push({
+        id: +m.id,
+        name: m.name,
+        kind: m.kind,
+        text: m.text,
+        created: +m.created,
+      });
+      messages.set(m.room_id, a);
+      state.messageId = Math.max(state.messageId, +m.id);
+    }
+    for (const n of (
+      await db.query("SELECT * FROM notifications ORDER BY created DESC")
+    ).rows) {
+      let a = notifications.get(n.user_id) || [];
+      a.push({ id: n.id, text: n.text, created: +n.created });
+      notifications.set(n.user_id, a);
+    }
+    for (const f of (await db.query("SELECT * FROM friends")).rows) {
+      let a = friends.get(f.user_id) || new Set();
+      a.add(f.friend_id);
+      friends.set(f.user_id, a);
+    }
+  } else {
+    let a = {
+      id: randomUUID(),
+      name: "admin",
+      login: "admin",
+      city: "Mersin",
+      age: 18,
+      password: await hashPassword(process.env.ADMIN_PASSWORD || randomUUID()),
+      coins: 1000,
+      emoji: "🛡️",
+      avatar: "",
+      xp: 0,
+      is_admin: true,
+    };
+    users.set(a.id, a);
+  }
+  await restoreSessions();
+  server.listen(process.env.PORT || 3000, () =>
+    console.log("TopTown Node.js ready"),
+  );
+}
+app.disable("x-powered-by");
+app.use((q, r, n) => {
+  r.set({
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(self), microphone=(self)",
+  });
+  n();
+});
+app.use(express.json({ limit: "200kb" }));
+app.use(["/api/login", "/api/register"], createAuthLimiter());
+app.use(express.static("public"));
+app.get("/api/health", (_, r) =>
+  r.json({
+    ok: true,
+    version: "v19",
+    runtime: "node",
+    rooms: rooms.size,
+    persistence: !!db,
+  }),
+);
+const services = {
+  app,
+  db,
+  users,
+  sessions,
+  rooms,
+  presence,
+  messages,
+  signals,
+  notifications,
+  friends,
+  state,
+  hash,
+  key,
+  fail,
+  me,
+  now,
+  prof,
+  yt,
+  save,
+  notice,
+  people,
+  inRoom,
+  issueSession,
+  leaveRoom,
+  roomEvent,
+  hashPassword,
+  verifyPassword,
+};
+registerAuth(services);
+registerRooms(services);
+registerPresence(services);
+registerChat(services);
+registerEconomy(services);
+registerPlaylist(services);
+registerSocial(services);
+registerModeration(services);
+registerAdmin(services);
+registerImages(services);
+app.get("/api/room/owners", (q, r) =>
+  r.json({
+    items: [...rooms.values()].map((x) => ({
+      name: x.name,
+      owner: users.get(x.owner)?.name || "Bilinmiyor",
+    })),
+  }),
+);
+registerLevels(services);
+app.use("/api", (q, r) => fail(r, 404, "API yolu bulunamadı."));
+app.use((e, q, r, n) => {
+  console.error("API error", e);
+  if (q.path?.startsWith("/api/"))
+    return fail(r, 500, "Sunucu isteği işleyemedi.");
+  n(e);
+});
+(async () => {
+  if (db)
+    await db.query(
+      "CREATE TABLE IF NOT EXISTS room_images(room_id TEXT PRIMARY KEY,image TEXT NOT NULL,updated BIGINT NOT NULL)",
+    );
+  await boot();
+})().catch((e) => {
+  console.error("PostgreSQL başlatılamadı", e);
+  process.exit(1);
+});

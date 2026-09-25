@@ -1,1 +1,29 @@
-(()=>{const token=()=>sessionStorage.getItem('toptown-session')||'',api=async(p,b)=>{let r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token()},body:b?JSON.stringify(b):undefined}),d=await r.json();if(!r.ok)throw Error(d.error||'İşlem yapılamadı');return d},toast=t=>{let x=document.querySelector('#toast');if(x){x.textContent=t;x.hidden=false;setTimeout(()=>x.hidden=true,3500)}};async function cards(){let box=document.querySelector('#rooms');if(!box)return;let[levels,images]=await Promise.all([api('room/levels'),api('room/images')]);for(const level of levels.items){let b=[...box.querySelectorAll('.roomcard')].find(x=>x.textContent.startsWith(level.name+' ·'));if(!b)continue;let image=images.items.find(x=>x.name===level.name);if(image?.image){b.classList.add('room-cover');b.style.backgroundImage='linear-gradient(90deg,rgba(22,16,43,.94),rgba(22,16,43,.56)),url("'+image.image.replace(/"/g,'%22')+'")'}let tag=b.querySelector('.room-level');if(!tag){tag=document.createElement('small');tag.className='room-level';b.append(tag)}tag.textContent='✦ Seviye '+level.level+' · '+level.xp+' XP'}}async function gift(){let box=document.querySelector('#gifts');if(!box||box.dataset.levelGift)return;box.dataset.levelGift='1';box.onclick=async e=>{let b=e.target.closest('[data-gift]');if(!b)return;try{let recipient=document.querySelector('#recipient')?.value;if(!recipient)throw Error('Önce alıcı seçin.');let result=await api('gift',{recipient,gift:b.dataset.gift});let room=await api('room/xp',{gift:b.dataset.gift});document.querySelector('#giftDialog')?.close();let coins=document.querySelector('#coins');if(coins)coins.textContent='🪙 '+result.coins;toast('Hediye gönderildi · Oda +'+room.gain+' XP · Seviye '+room.level);cards()}catch(x){toast(x.message)}}}setInterval(()=>{cards().catch(()=>{});gift().catch(()=>{})},900)})();
+// A gift transfers coins and awards room XP in the same server transaction.
+(() => {
+  const box = document.querySelector("#gifts");
+  if (!box) return;
+  let busy = false;
+  box.onclick = async (event) => {
+    const button = event.target.closest("[data-gift]");
+    if (!button || busy) return;
+    const recipient = document.querySelector("#recipient").value;
+    if (!recipient) return toast("Önce alıcı seçin.");
+    busy = true;
+    box.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    try {
+      const result = await api("gift", {
+        recipient,
+        gift: button.dataset.gift,
+      });
+      document.querySelector("#giftDialog").close();
+      document.querySelector("#coins").textContent = "🪙 " + result.coins;
+      toast("Hediye gönderildi ✨ Oda +" + result.gain + " XP");
+      await refresh();
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      busy = false;
+      box.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    }
+  };
+})();

@@ -1,1 +1,17 @@
-{"name":"TopTown v18","short_name":"TopTown","start_url":"/","display":"standalone","background_color":"#100d22","theme_color":"#191334","description":"Canlı sohbet, oda ve sosyal buluşma uygulaması","icons":[{"src":"/toptown-logo.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
+{
+  "name": "TopTown v19",
+  "short_name": "TopTown",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#100d22",
+  "theme_color": "#191334",
+  "description": "Canlı sohbet, oda ve sosyal buluşma uygulaması",
+  "icons": [
+    {
+      "src": "/toptown-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
