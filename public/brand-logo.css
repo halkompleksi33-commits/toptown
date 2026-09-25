@@ -1,0 +1,1 @@
+.brand{display:inline-flex!important;align-items:center;gap:9px}.brand-logo{width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 4px 8px #0006)}.brand small{margin-left:2px}@media(max-width:420px){.brand-logo{width:32px;height:32px}.brand{gap:6px}}

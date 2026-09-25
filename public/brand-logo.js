@@ -1,0 +1,1 @@
+(()=>{const add=()=>{let brand=document.querySelector('.brand');if(!brand||brand.querySelector('.brand-logo'))return;let img=document.createElement('img');img.className='brand-logo';img.src='/toptown-logo.png';img.alt='TopTown logo';brand.prepend(img)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',add);else add()})();
