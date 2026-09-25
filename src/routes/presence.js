@@ -1,3 +1,4 @@
+import { roomFun } from "./room-fun.js";
 export function register(context) {
   const {
     app,
@@ -59,6 +60,8 @@ export function register(context) {
       people: people(x.id),
       messages: (messages.get(x.id) || []).filter((m) => m.id > after),
       coins: q.user.coins,
+      fun: roomFun(x, q.user.id),
+      canManageActivities: x.owner === q.user.id || !!q.user.is_admin,
     });
   });
 }

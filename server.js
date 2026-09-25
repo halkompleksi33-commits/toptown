@@ -1,5 +1,6 @@
 import { register as registerAuth } from "./src/routes/auth.js";
 import { register as registerRooms } from "./src/routes/rooms.js";
+import { register as registerRoomFun } from "./src/routes/room-fun.js";
 import { register as registerPresence } from "./src/routes/presence.js";
 import { register as registerChat } from "./src/routes/chat.js";
 import { register as registerEconomy } from "./src/routes/economy.js";
@@ -296,6 +297,7 @@ const services = {
 };
 registerAuth(services);
 registerRooms(services);
+registerRoomFun(services);
 registerPresence(services);
 registerChat(services);
 registerEconomy(services);

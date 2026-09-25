@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { giftEvent } from "./room-fun.js";
 
 export function register({
   app,
@@ -110,6 +111,7 @@ export function register({
       Object.assign(sender, result.a);
       Object.assign(recipient, result.b);
       room.xp = result.roomXp;
+      giftEvent(room, sender, recipient, gift);
       history.unshift({
         id,
         sender: sender.id,

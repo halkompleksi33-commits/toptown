@@ -199,6 +199,7 @@ async function refresh() {
       }
     }
     if (followLatest) $("#chat").scrollTop = $("#chat").scrollHeight;
+    window.TopTownFun?.update(d);
     if (d.room.youtube !== videoId) {
       videoId = d.room.youtube;
       $("#youtube").replaceChildren();
@@ -245,6 +246,7 @@ function draw() {
         b = document.createElement("button");
       b.className =
         "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "");
+      if (p) b.dataset.speaker = p.id;
       b.innerHTML = '<span class="avatar"></span><span></span>';
       b.firstChild.textContent = p ? p.emoji : "+";
       if (p?.avatar && /^data:image\/(png|jpeg|webp);base64,/.test(p.avatar)) {
@@ -273,6 +275,7 @@ function draw() {
     ...people.map((p) => {
       const e = document.createElement("span");
       e.className = "person";
+      e.dataset.speaker = p.id;
       e.textContent = p.emoji + " " + p.name;
       return e;
     }),
@@ -297,6 +300,7 @@ $("#messageForm").onsubmit = safe(async (e) => {
   }
 });
 function stop() {
+  window.TopTownFun?.stop();
   stream?.getTracks().forEach((t) => t.stop());
   stream = null;
   peers.forEach((p) => p.close());

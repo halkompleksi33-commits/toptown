@@ -885,3 +885,69 @@ dialog::backdrop {
     width: 100%;
   }
 }
+:is(.seat, .person).is-speaking {
+  outline: 3px solid #48e9aa;
+  outline-offset: 3px;
+  box-shadow: 0 0 22px #48e9aa88;
+}
+.room-fun {
+  border: 1px solid #9775fa55;
+  border-radius: 18px;
+  padding: 14px;
+  margin: 12px 0;
+  background: #9775fa12;
+}
+.fun-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#activityLive {
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+#activityLive button {
+  margin: 4px;
+}
+.gift-celebration {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(90vw, 380px);
+  padding: 24px;
+  border-radius: 28px;
+  background: #24163eed;
+  color: white;
+  box-shadow: 0 12px 70px #bb6aff66;
+  pointer-events: none;
+  text-align: center;
+}
+.gift-celebration[hidden] {
+  display: none;
+}
+.gift-celebration span {
+  font-size: 76px;
+  animation: gift-pop 700ms ease-out;
+}
+@keyframes gift-pop {
+  from {
+    transform: translateY(45px) scale(0.3) rotate(-15deg);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gift-celebration span {
+    animation: none;
+  }
+}
