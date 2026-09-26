@@ -13,7 +13,8 @@ let token = sessionStorage.getItem("toptown-session") || "",
   videoId,
   videoPanelHidden = false,
   peers = new Map(),
-  remoteStreams = new Map();
+  remoteStreams = new Map(),
+  animatedAvatars = new Map();
 const toast = (t) => {
   $("#toast").textContent = t;
   $("#toast").hidden = false;
@@ -261,8 +262,14 @@ function draw() {
         p?.avatar &&
         /^data:image\/(png|jpeg|webp|gif);base64,/.test(p.avatar)
       ) {
-        const image = document.createElement("img");
-        image.src = p.avatar;
+        const isGif = /^data:image\/gif;base64,/.test(p.avatar);
+        let image = isGif ? animatedAvatars.get(p.id) : null;
+        if (!image || image.dataset.avatar !== p.avatar) {
+          image = document.createElement("img");
+          image.src = p.avatar;
+          image.dataset.avatar = p.avatar;
+          if (isGif) animatedAvatars.set(p.id, image);
+        }
         image.alt = p.name;
         image.style.cssText =
           "width:100%;height:100%;object-fit:cover;border-radius:50%";
@@ -282,6 +289,9 @@ function draw() {
       return b;
     }),
   );
+  const seatedIds = new Set([...people, ...roomBots].map((p) => p.id));
+  for (const id of animatedAvatars.keys())
+    if (!seatedIds.has(id)) animatedAvatars.delete(id);
   $("#people").replaceChildren(
     ...people.map((p) => {
       const e = document.createElement("span");
