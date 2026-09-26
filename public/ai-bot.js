@@ -47,6 +47,20 @@
       `${info.configured ? "API anahtarı sunucuda tanımlı (bağlantı henüz test edilmedi)" : "OPENAI_API_KEY eksik"} · Model: ${info.model}`;
     const form = dialog.querySelector(".ai-config"),
       select = form.elements.room_id;
+    for (const [name, text] of [
+      ["joined", "Bot odada bulunsun (kapatınca odadan çıkar)"],
+      [
+        "automatic",
+        "Kendiliğinden sohbet başlatsın (5 dakikada en fazla bir hazır mesaj)",
+      ],
+    ]) {
+      const label = document.createElement("label"),
+        input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = name;
+      label.append(input, document.createTextNode(" " + text));
+      form.querySelector("button").before(label);
+    }
     for (const room of roomData.rooms) {
       const option = document.createElement("option");
       option.value = room.id;
@@ -57,6 +71,8 @@
       const bot = info.bots.find((b) => b.room_id === select.value);
       form.elements.name.value = bot?.name || "TopTown Asistan";
       form.elements.enabled.checked = !!bot?.enabled;
+      form.elements.joined.checked = !!bot?.joined;
+      form.elements.automatic.checked = !!bot?.automatic;
     };
     select.onchange = load;
     load();
@@ -69,6 +85,8 @@
           room_id: select.value,
           name: form.elements.name.value,
           enabled: form.elements.enabled.checked,
+          joined: form.elements.joined.checked,
+          automatic: form.elements.automatic.checked,
         });
         dialog.close();
         toast("Bot ayarları kaydedildi.");

@@ -2,6 +2,41 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import { register } from "../src/routes/ai-bot.js";
+import { botRoster } from "../src/bot-presence.js";
+
+test("bot joins, starts conversation with cooldown, stays quiet in empty room and leaves", async (t) => {
+  botRoster.clear();
+  const { request, context, controller } = await fixture(t);
+  const body = {
+    room_id: "room",
+    name: "Sohbetçi",
+    enabled: true,
+    joined: true,
+    automatic: true,
+  };
+  assert.equal((await request("admin/ai", body, "admin")).status, 200);
+  assert.equal(botRoster.get("room").name, "Sohbetçi");
+  assert.equal(context.messages.get("room")[0].kind, "join");
+  const original = Date.now,
+    base = original();
+  try {
+    Date.now = () => base + 16000;
+    await controller.tick();
+    assert.equal(context.messages.get("room").at(-1).kind, "chat");
+    const count = context.messages.get("room").length;
+    await controller.tick();
+    assert.equal(context.messages.get("room").length, count);
+    context.presence.clear();
+    Date.now = () => base + 400000;
+    await controller.tick();
+    assert.equal(context.messages.get("room").length, count);
+  } finally {
+    Date.now = original;
+  }
+  await request("admin/ai", { ...body, joined: false }, "admin");
+  assert.equal(botRoster.has("room"), false);
+  assert.equal(context.messages.get("room").at(-1).kind, "leave");
+});
 
 async function fixture(t, options = {}) {
   const app = express();
@@ -21,7 +56,11 @@ async function fixture(t, options = {}) {
     state: { messageId: 0 },
     fail: (r, status, error) => r.status(status).json({ error }),
   };
-  register(context, { apiKey: "test-only-key", ...options });
+  const controller = register(context, {
+    apiKey: "test-only-key",
+    scheduler: false,
+    ...options,
+  });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   t.after(() => {
@@ -34,7 +73,7 @@ async function fixture(t, options = {}) {
       headers: { "Content-Type": "application/json", "x-user": user },
       body: body ? JSON.stringify(body) : undefined,
     });
-  return { context, request };
+  return { context, request, controller };
 }
 test("AI bot requires admin configuration and explicit consent; only prompt leaves server", async (t) => {
   let calls = 0;

@@ -189,6 +189,12 @@ async function refresh() {
     const chat = $("#chat"),
       followLatest =
         chat.scrollHeight - chat.scrollTop - chat.clientHeight < 90;
+    for (const bot of d.bots || []) {
+      const badge = document.createElement("span");
+      badge.className = "person";
+      badge.textContent = "🤖 " + bot.name;
+      $("#people").append(badge);
+    }
     for (const m of d.messages) {
       if (m.id > after) {
         const p = document.createElement("p");

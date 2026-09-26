@@ -2,9 +2,11 @@
 
 ## OpenAI sohbet botu
 
+Admin AI botlar ekranındaki **Bot odada bulunsun** seçimi giriş/çıkış kaydı üretir ve botu katılımcı listesine ekler. **Kendiliğinden sohbet başlatsın** açıkken yalnızca insan bulunan odalarda, en sık beş dakikada bir ücretsiz hazır açılış mesajı paylaşılır. Aktif sohbetin son mesajı bir dakikadan yeniyse atlanır. Bu açılışlar OpenAI çağrısı değildir; oda geçmişi dışarı gönderilmez. Botlar insan sayacına dahil edilmez, medya almaz ve hediye alıcısı olarak listelenmez. Ayarlar PostgreSQL'de kalıcıdır.
+
 Railway sunucusunda `OPENAI_API_KEY` ayarlayın. Anahtarı koda, tarayıcıya veya GitHub'a koymayın. İsteğe bağlı `OPENAI_MODEL` varsayılanı `gpt-4.1-mini` modelidir. Yönetici panelindeki **AI botlar** düğmesinden oda ve bot adı seçerek etkinleştirin. Oda içindeki **AI bota sor** formu açık onayla yalnızca yazılan soruyu OpenAI Responses API'ye gönderir (`store:false`); oda geçmişi, özel mesajlar ve hesap bilgileri gönderilmez. Yanıt odada `[BOT]` etiketiyle görünür ve mesaj geçmişine kaydedilir.
 
-Bot varsayılan olarak kapalıdır. Kullanıcı başına 30 saniye bekleme, oda başına bir eşzamanlı çağrı, toplam üç eşzamanlı çağrı ve UTC gününe göre site genelinde 100 istek sınırı vardır. Hatalı çağrı girişimleri de günlük sınıra dahildir. PostgreSQL günlük sayacı yeniden başlatmada korunur. Bu bir para limiti değildir; OpenAI proje bütçesini ayrıca ayarlayın. API ücretlidir. Otomatik sohbet başlatma, odayı dinleme, hediye/jeton işlemleri bu entegrasyona dahil değildir. Bot araç erişimine sahip değildir.
+Bot varsayılan olarak kapalıdır. Kullanıcı başına 30 saniye bekleme, oda başına bir eşzamanlı çağrı, toplam üç eşzamanlı çağrı ve UTC gününe göre site genelinde 100 istek sınırı vardır. Hatalı çağrı girişimleri de günlük sınıra dahildir. PostgreSQL günlük sayacı yeniden başlatmada korunur. Bu bir para limiti değildir; OpenAI proje bütçesini ayrıca ayarlayın. API ücretlidir. Odayı dinleme ve hediye/jeton işlemleri bu entegrasyona dahil değildir. Bot araç erişimine sahip değildir.
 
 Node.js + Express + PostgreSQL sosyal oda uygulaması. Dokuz koltuk, WebRTC ses/video, hediye, oda yönetimi, profil, arkadaşlar, özel mesaj, bildirim ve yönetici ekranları içerir.
 

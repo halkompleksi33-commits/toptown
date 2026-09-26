@@ -36,7 +36,7 @@ test("PostgreSQL migration preserves existing users and is repeatable", async ()
     assert.equal(
       (await client.query("SELECT count(*) FROM schema_migrations")).rows[0]
         .count,
-      2,
+      3,
     );
     assert.equal(
       (await client.query("SELECT coins FROM users WHERE id='original'"))

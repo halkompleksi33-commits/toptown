@@ -31,6 +31,18 @@ export async function migrate(pool) {
       );
       await client.query("INSERT INTO schema_migrations(version) VALUES(2)");
     }
+    const presenceInstalled = await client.query(
+      "SELECT 1 FROM schema_migrations WHERE version=3",
+    );
+    if (!presenceInstalled.rowCount) {
+      await client.query(
+        await readFile(
+          new URL("./migrations/003-bot-presence.sql", import.meta.url),
+          "utf8",
+        ),
+      );
+      await client.query("INSERT INTO schema_migrations(version) VALUES(3)");
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

@@ -1,3 +1,4 @@
+import { botRoster } from "../bot-presence.js";
 export function register(
   { app, db, rooms, presence, messages, state, fail },
   options = {},
@@ -11,6 +12,93 @@ export function register(
   let memoryDay = "",
     memoryCount = 0;
   const dailyLimit = 100;
+  const nextMessage = new Map();
+  const starters = [
+    "Herkese merhaba! Bugün sizi gülümseten bir şey oldu mu?",
+    "Birlikte sohbet edelim: şu sıralar en sevdiğiniz şarkı hangisi?",
+    "Hafta sonu için güzel bir planınız var mı?",
+    "Bir günlüğüne istediğiniz yere gidebilseniz nereyi seçerdiniz?",
+  ];
+  let cursor = 0,
+    ticking = false;
+  async function publish(roomId, bot, kind, text) {
+    const m = {
+      id: ++state.messageId,
+      user_id: "bot:" + roomId,
+      name: bot.name + " [BOT]",
+      kind,
+      text,
+      created: Date.now(),
+    };
+    if (db)
+      await db.query(
+        "INSERT INTO messages(id,room_id,user_id,name,kind,text,created) VALUES($1,$2,$3,$4,$5,$6,$7)",
+        [m.id, roomId, m.user_id, m.name, kind, text, m.created],
+      );
+    if (!rooms.has(roomId)) return;
+    const list = messages.get(roomId) || [];
+    list.push(m);
+    messages.set(roomId, list);
+  }
+  async function sync(bot) {
+    const old = botRoster.get(bot.room_id);
+    if (bot.enabled && bot.joined && rooms.has(bot.room_id)) {
+      botRoster.set(bot.room_id, bot);
+      if (!old) {
+        nextMessage.set(bot.room_id, Date.now() + 15000);
+        await publish(bot.room_id, bot, "join", "odaya katıldı.");
+      }
+    } else if (old) {
+      botRoster.delete(bot.room_id);
+      nextMessage.delete(bot.room_id);
+      await publish(bot.room_id, old, "leave", "odadan ayrıldı.");
+    }
+  }
+  async function tick() {
+    if (ticking) return;
+    ticking = true;
+    try {
+      const rows = db
+        ? (await db.query("SELECT * FROM ai_bots")).rows
+        : [...configs.values()];
+      for (const id of botRoster.keys())
+        if (!rooms.has(id)) {
+          botRoster.delete(id);
+          nextMessage.delete(id);
+        }
+      for (const bot of rows) {
+        await sync(bot);
+        if (
+          !bot.enabled ||
+          !bot.joined ||
+          !bot.automatic ||
+          !rooms.has(bot.room_id)
+        )
+          continue;
+        const occupied = [...presence.values()].some(
+          (p) =>
+            p.room === bot.room_id && (!p.seen || Date.now() - p.seen < 60000),
+        );
+        if (!occupied || Date.now() < (nextMessage.get(bot.room_id) || 0))
+          continue;
+        nextMessage.set(bot.room_id, Date.now() + 300000);
+        const last = (messages.get(bot.room_id) || []).at(-1);
+        if (last?.kind === "chat" && Date.now() - last.created < 60000)
+          continue;
+        const text = starters[cursor++ % starters.length];
+        const words = String(rooms.get(bot.room_id).banned_words || "")
+          .split(",")
+          .map((w) => w.trim().toLocaleLowerCase("tr-TR"))
+          .filter(Boolean);
+        if (!words.some((w) => text.toLocaleLowerCase("tr-TR").includes(w)))
+          await publish(bot.room_id, bot, "chat", text);
+      }
+    } finally {
+      ticking = false;
+    }
+  }
+  if (options.scheduler !== false)
+    setInterval(() => tick().catch(() => {}), 15000).unref();
   const admin = (q, r, next) =>
     q.user?.is_admin ? next() : fail(r, 403, "Yönetici yetkisi gerekiyor.");
   async function config(id) {
@@ -47,13 +135,21 @@ export function register(
     });
   });
   app.post("/api/admin/ai", admin, async (q, r) => {
-    const { room_id, name, enabled } = q.body || {};
+    const {
+      room_id,
+      name,
+      enabled,
+      joined = false,
+      automatic = false,
+    } = q.body || {};
     if (
       !rooms.has(room_id) ||
       typeof name !== "string" ||
       name.trim().length < 2 ||
       name.trim().length > 30 ||
-      typeof enabled !== "boolean"
+      typeof enabled !== "boolean" ||
+      typeof joined !== "boolean" ||
+      typeof automatic !== "boolean"
     )
       return fail(
         r,
@@ -62,13 +158,20 @@ export function register(
       );
     if (enabled && !apiKey)
       return fail(r, 503, "Railway OPENAI_API_KEY ayarı eksik.");
-    const value = { room_id, name: name.trim(), enabled };
+    const value = {
+      room_id,
+      name: name.trim(),
+      enabled,
+      joined: enabled && joined,
+      automatic,
+    };
     if (db)
       await db.query(
-        "INSERT INTO ai_bots(room_id,name,enabled) VALUES($1,$2,$3) ON CONFLICT(room_id) DO UPDATE SET name=EXCLUDED.name,enabled=EXCLUDED.enabled",
-        [room_id, value.name, enabled],
+        "INSERT INTO ai_bots(room_id,name,enabled,joined,automatic) VALUES($1,$2,$3,$4,$5) ON CONFLICT(room_id) DO UPDATE SET name=EXCLUDED.name,enabled=EXCLUDED.enabled,joined=EXCLUDED.joined,automatic=EXCLUDED.automatic",
+        [room_id, value.name, enabled, value.joined, automatic],
       );
     else configs.set(room_id, value);
+    await sync(value);
     r.json({ ok: true });
   });
   app.get("/api/bot", async (q, r) => {
@@ -191,4 +294,5 @@ export function register(
       active.delete(room.id);
     }
   });
+  return { tick };
 }
