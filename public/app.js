@@ -256,11 +256,16 @@ function draw() {
     let b = seatNodes[i];
     if (!b) {
       b = document.createElement("button");
-      b.innerHTML = '<span class="avatar"></span><span></span>';
+      const avatar = document.createElement("span"),
+        label = document.createElement("span");
+      avatar.className = "avatar";
+      b.append(avatar, label);
+      b._avatar = avatar;
+      b._label = label;
       seatNodes[i] = b;
     }
-    const avatar = b.querySelector(".avatar"),
-      label = b.querySelector("span:not(.avatar)");
+    const avatar = b._avatar,
+      label = b._label;
     b.className =
       "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "");
     if (p) b.dataset.speaker = p.id;
