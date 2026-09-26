@@ -14,7 +14,8 @@ let token = sessionStorage.getItem("toptown-session") || "",
   videoPanelHidden = false,
   peers = new Map(),
   remoteStreams = new Map(),
-  animatedAvatars = new Map();
+  animatedAvatars = new Map(),
+  seatNodes = [];
 const toast = (t) => {
   $("#toast").textContent = t;
   $("#toast").hidden = false;
@@ -249,47 +250,52 @@ function seatVideo(box, media, muted) {
 }
 function draw() {
   if (!user) return;
-  $("#seats").replaceChildren(
-    ...Array.from({ length: 9 }, (_, i) => {
-      const p = [...people, ...roomBots].find((x) => x.seat === i),
-        b = document.createElement("button");
-      b.className =
-        "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "");
-      if (p) b.dataset.speaker = p.id;
+  const all = [...people, ...roomBots];
+  for (let i = 0; i < 9; i++) {
+    const p = all.find((x) => x.seat === i);
+    let b = seatNodes[i];
+    if (!b) {
+      b = document.createElement("button");
       b.innerHTML = '<span class="avatar"></span><span></span>';
-      b.firstChild.textContent = p ? p.emoji : "+";
-      if (
-        p?.avatar &&
-        /^data:image\/(png|jpeg|webp|gif);base64,/.test(p.avatar)
-      ) {
-        const isGif = /^data:image\/gif;base64,/.test(p.avatar);
-        let image = isGif ? animatedAvatars.get(p.id) : null;
-        if (!image || image.dataset.avatar !== p.avatar) {
-          image = document.createElement("img");
-          image.src = p.avatar;
-          image.dataset.avatar = p.avatar;
-          if (isGif) animatedAvatars.set(p.id, image);
-        }
-        image.alt = p.name;
-        image.style.cssText =
-          "width:100%;height:100%;object-fit:cover;border-radius:50%";
-        b.firstChild.replaceChildren(image);
+      seatNodes[i] = b;
+    }
+    const avatar = b.firstChild,
+      label = b.lastChild;
+    b.className =
+      "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "");
+    if (p) b.dataset.speaker = p.id;
+    else delete b.dataset.speaker;
+    const validAvatar =
+      p?.avatar && /^data:image\/(png|jpeg|webp|gif);base64,/.test(p.avatar);
+    if (validAvatar) {
+      const isGif = /^data:image\/gif;base64,/.test(p.avatar);
+      let image = isGif ? animatedAvatars.get(p.id) : avatar.firstChild;
+      if (!image || image.dataset.avatar !== p.avatar) {
+        image = document.createElement("img");
+        image.src = p.avatar;
+        image.dataset.avatar = p.avatar;
+        if (isGif) animatedAvatars.set(p.id, image);
       }
-      b.lastChild.textContent = p ? p.name : i + 1 + ". koltuk · Otur";
-      if (p)
-        seatVideo(b, p.id === user.id ? stream : remoteStreams.get(p.id), true);
-      b.onclick = safe(async () => {
-        if (p?.id === user.id) {
-          await api("seat", { seat: null });
-          stop();
-        } else if (!p) await api("seat", { seat: i });
-        else toast(p.name + " bu koltukta.");
-        refresh();
-      });
-      return b;
-    }),
-  );
-  const seatedIds = new Set([...people, ...roomBots].map((p) => p.id));
+      image.alt = p.name;
+      image.style.cssText =
+        "width:100%;height:100%;object-fit:cover;border-radius:50%";
+      if (avatar.firstChild !== image) avatar.replaceChildren(image);
+    } else avatar.textContent = p ? p.emoji : "+";
+    label.textContent = p ? p.name : i + 1 + ". koltuk · Otur";
+    b.querySelector(".seatvideo")?.remove();
+    if (p)
+      seatVideo(b, p.id === user.id ? stream : remoteStreams.get(p.id), true);
+    b.onclick = safe(async () => {
+      if (p?.id === user.id) {
+        await api("seat", { seat: null });
+        stop();
+      } else if (!p) await api("seat", { seat: i });
+      else toast(p.name + " bu koltukta.");
+      refresh();
+    });
+    $("#seats").append(b);
+  }
+  const seatedIds = new Set(all.map((p) => p.id));
   for (const id of animatedAvatars.keys())
     if (!seatedIds.has(id)) animatedAvatars.delete(id);
   $("#people").replaceChildren(
