@@ -259,8 +259,8 @@ function draw() {
       b.innerHTML = '<span class="avatar"></span><span></span>';
       seatNodes[i] = b;
     }
-    const avatar = b.firstChild,
-      label = b.lastChild;
+    const avatar = b.querySelector(".avatar"),
+      label = b.querySelector("span:not(.avatar)");
     b.className =
       "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "");
     if (p) b.dataset.speaker = p.id;
