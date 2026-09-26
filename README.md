@@ -1,4 +1,10 @@
-# TopTown v19
+# TopTown v020
+
+## OpenAI sohbet botu
+
+Railway sunucusunda `OPENAI_API_KEY` ayarlayın. Anahtarı koda, tarayıcıya veya GitHub'a koymayın. İsteğe bağlı `OPENAI_MODEL` varsayılanı `gpt-4.1-mini` modelidir. Yönetici panelindeki **AI botlar** düğmesinden oda ve bot adı seçerek etkinleştirin. Oda içindeki **AI bota sor** formu açık onayla yalnızca yazılan soruyu OpenAI Responses API'ye gönderir (`store:false`); oda geçmişi, özel mesajlar ve hesap bilgileri gönderilmez. Yanıt odada `[BOT]` etiketiyle görünür ve mesaj geçmişine kaydedilir.
+
+Bot varsayılan olarak kapalıdır. Kullanıcı başına 30 saniye bekleme, oda başına bir eşzamanlı çağrı, toplam üç eşzamanlı çağrı ve UTC gününe göre site genelinde 100 istek sınırı vardır. Hatalı çağrı girişimleri de günlük sınıra dahildir. PostgreSQL günlük sayacı yeniden başlatmada korunur. Bu bir para limiti değildir; OpenAI proje bütçesini ayrıca ayarlayın. API ücretlidir. Otomatik sohbet başlatma, odayı dinleme, hediye/jeton işlemleri bu entegrasyona dahil değildir. Bot araç erişimine sahip değildir.
 
 Node.js + Express + PostgreSQL sosyal oda uygulaması. Dokuz koltuk, WebRTC ses/video, hediye, oda yönetimi, profil, arkadaşlar, özel mesaj, bildirim ve yönetici ekranları içerir.
 

@@ -14,6 +14,7 @@ export default defineConfig({
       PORT: "3199",
       DATABASE_URL: "",
       ADMIN_PASSWORD: "local-test-password",
+      OPENAI_API_KEY: "",
     },
     reuseExistingServer: false,
   },

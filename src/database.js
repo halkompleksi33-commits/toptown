@@ -19,6 +19,18 @@ export async function migrate(pool) {
       await client.query(sql);
       await client.query("INSERT INTO schema_migrations(version) VALUES(1)");
     }
+    const aiInstalled = await client.query(
+      "SELECT 1 FROM schema_migrations WHERE version=2",
+    );
+    if (!aiInstalled.rowCount) {
+      await client.query(
+        await readFile(
+          new URL("./migrations/002-ai-bots.sql", import.meta.url),
+          "utf8",
+        ),
+      );
+      await client.query("INSERT INTO schema_migrations(version) VALUES(2)");
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

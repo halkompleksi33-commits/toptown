@@ -1,5 +1,6 @@
 import { register as registerAuth } from "./src/routes/auth.js";
 import { register as registerRooms } from "./src/routes/rooms.js";
+import { register as registerAiBot } from "./src/routes/ai-bot.js";
 import { register as registerRoomFun } from "./src/routes/room-fun.js";
 import { register as registerPresence } from "./src/routes/presence.js";
 import { register as registerChat } from "./src/routes/chat.js";
@@ -306,6 +307,7 @@ registerSocial(services);
 registerModeration(services);
 registerAdmin(services);
 registerAdminManagement(services);
+registerAiBot(services);
 registerImages(services);
 app.get("/api/room/owners", (q, r) =>
   r.json({

@@ -58,6 +58,10 @@
     panel.append(
       button("×", () => panel.close()),
       el("h2", "Yönetici paneli"),
+      button(
+        "🤖 AI botlar",
+        run(() => window.openAiBotAdmin()),
+      ),
     );
     panel.firstChild.className = "close";
     panel.firstChild.setAttribute("aria-label", "Kapat");
