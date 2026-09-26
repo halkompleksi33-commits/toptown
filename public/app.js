@@ -103,7 +103,7 @@ async function loadRooms() {
       meta.className = "room-level";
       meta.textContent = r.online + " kişi · Seviye " + r.level + " · Katıl →";
       b.append(title, owner, meta);
-      if (/^data:image\/(png|jpeg|webp);base64,/.test(r.image || "")) {
+      if (/^data:image\/(png|jpeg|webp|gif);base64,/.test(r.image || "")) {
         b.classList.add("room-cover");
         b.style.backgroundImage =
           'linear-gradient(100deg,#211637ee,#24174577),url("' + r.image + '")';
@@ -257,7 +257,10 @@ function draw() {
       if (p) b.dataset.speaker = p.id;
       b.innerHTML = '<span class="avatar"></span><span></span>';
       b.firstChild.textContent = p ? p.emoji : "+";
-      if (p?.avatar && /^data:image\/(png|jpeg|webp);base64,/.test(p.avatar)) {
+      if (
+        p?.avatar &&
+        /^data:image\/(png|jpeg|webp|gif);base64,/.test(p.avatar)
+      ) {
         const image = document.createElement("img");
         image.src = p.avatar;
         image.alt = p.name;

@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!form) return;
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "image/png,image/jpeg,image/webp";
+  input.accept = "image/png,image/jpeg,image/webp,image/gif";
   input.hidden = true;
   const button = document.createElement("button");
   button.type = "button";
@@ -12,11 +12,33 @@ document.addEventListener("DOMContentLoaded", () => {
   input.onchange = async () => {
     const file = input.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024)
-      return toast("Görsel 10 MB’den küçük olmalı.");
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type))
+      return toast("PNG, JPEG, WebP veya GIF seçin.");
+    if (file.size > (file.type === "image/gif" ? 1 : 10) * 1024 * 1024)
+      return toast(
+        file.type === "image/gif"
+          ? "Animasyonlu GIF 1 MB’den küçük olmalı."
+          : "Görsel 10 MB’den küçük olmalı.",
+      );
     button.disabled = true;
-    button.textContent = "Fotoğraf hazırlanıyor…";
+    button.textContent =
+      file.type === "image/gif" ? "GIF yükleniyor…" : "Fotoğraf hazırlanıyor…";
     try {
+      if (file.type === "image/gif") {
+        const reader = new FileReader();
+        const avatar = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const result = await api("profile", {
+          emoji: document.querySelector("#emoji").value,
+          avatar,
+        });
+        user = result.user;
+        toast("Animasyonlu profil GIF’in güncellendi.");
+        return;
+      }
       const bitmap = await createImageBitmap(file);
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 256;
@@ -42,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
       user = result.user;
       toast("Profil fotoğrafın güncellendi.");
     } catch {
-      toast("Fotoğraf yüklenemedi. Başka bir görsel deneyin.");
+      toast("Görsel yüklenemedi. Başka bir dosya deneyin.");
     } finally {
       button.disabled = false;
       button.textContent = "🖼️ Fotoğraf seç";

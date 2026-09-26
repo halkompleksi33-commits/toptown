@@ -71,12 +71,14 @@ export function register(context) {
     const emoji = String(q.body?.emoji || "🙂").slice(0, 8);
     let avatar = q.user.avatar || "";
     if (q.body?.avatar !== undefined) {
+      const candidate = q.body.avatar;
+      const isGif = /^data:image\/gif;base64,/.test(candidate);
       if (
-        typeof q.body.avatar !== "string" ||
-        q.body.avatar.length > 200000 ||
-        (q.body.avatar !== "" &&
-          !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(
-            q.body.avatar,
+        typeof candidate !== "string" ||
+        candidate.length > (isGif ? 1_400_000 : 200_000) ||
+        (candidate !== "" &&
+          !/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(
+            candidate,
           ))
       ) {
         return fail(r, 400, "Geçerli bir PNG, JPEG veya WebP görseli seçin.");
