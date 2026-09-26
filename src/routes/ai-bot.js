@@ -1,4 +1,4 @@
-import { botRoster } from "../bot-presence.js";
+import { botRoster, botSeats } from "../bot-presence.js";
 export function register(
   { app, db, rooms, presence, messages, state, fail },
   options = {},
@@ -50,6 +50,7 @@ export function register(
       }
     } else if (old) {
       botRoster.delete(bot.room_id);
+      botSeats.delete(bot.room_id);
       nextMessage.delete(bot.room_id);
       await publish(bot.room_id, old, "leave", "odadan ayrıldı.");
     }
@@ -64,6 +65,7 @@ export function register(
       for (const id of botRoster.keys())
         if (!rooms.has(id)) {
           botRoster.delete(id);
+          botSeats.delete(id);
           nextMessage.delete(id);
         }
       for (const bot of rows) {
@@ -106,6 +108,32 @@ export function register(
       ? (await db.query("SELECT * FROM ai_bots WHERE room_id=$1", [id])).rows[0]
       : configs.get(id);
   }
+  app.post("/api/admin/bot/seat", admin, (q, r) => {
+    const { room_id, seat } = q.body || {};
+    if (!rooms.has(room_id) || !botRoster.has(room_id))
+      return fail(r, 409, "Bot önce odaya katılmalı.");
+    if (seat !== null && (!Number.isInteger(seat) || seat < 0 || seat > 8))
+      return fail(r, 400, "Geçersiz koltuk.");
+    if (seat !== null && rooms.get(room_id).locked)
+      return fail(r, 403, "Koltuklar kilitli.");
+    if (
+      seat !== null &&
+      [...presence.values()].some((p) => p.room === room_id && p.seat === seat)
+    )
+      return fail(r, 409, "Koltuk dolu.");
+    if (seat === null) botSeats.delete(room_id);
+    else botSeats.set(room_id, seat);
+    r.json({ ok: true });
+  });
+  app.get("/api/admin/bot/room/:id", admin, (q, r) => {
+    if (!rooms.has(q.params.id)) return fail(r, 404, "Oda bulunamadı.");
+    r.json({
+      seat: botSeats.get(q.params.id) ?? null,
+      members: [...presence]
+        .filter(([, p]) => p.room === q.params.id)
+        .map(([id]) => id),
+    });
+  });
   async function reserve() {
     const day = new Date().toISOString().slice(0, 10);
     if (db)

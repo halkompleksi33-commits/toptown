@@ -1,3 +1,4 @@
+import { botSeats, botRoster } from "../bot-presence.js";
 export function register(context) {
   const {
     app,
@@ -57,7 +58,11 @@ export function register(context) {
       return fail(r, 403, "Susturulduğun için koltuğa oturamazsın.");
     if (seat !== null && (!Number.isInteger(seat) || seat < 0 || seat > 8))
       return fail(r, 400, "Geçersiz koltuk.");
-    if (seat !== null && people(p.room).some((x) => x.seat === seat))
+    if (
+      seat !== null &&
+      (people(p.room).some((x) => x.seat === seat) ||
+        (botRoster.has(p.room) && botSeats.get(p.room) === seat))
+    )
       return fail(r, 409, "Koltuk dolu.");
     p.seat = seat;
     r.json({ ok: true });

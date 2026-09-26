@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { giftEvent } from "./room-fun.js";
+import { botRoster } from "../bot-presence.js";
 
 export function register({
   app,
@@ -46,13 +47,19 @@ export function register({
     }
   };
   app.post(
-    "/api/gift",
+    ["/api/gift", "/api/admin/bot/gift"],
     handler(async (req) => {
       const gift = String(req.body?.gift || ""),
         cost = { rose: 30, cake: 120, rocket: 300, crown: 800 }[gift];
       const sender = req.user,
         recipient = users.get(String(req.body?.recipient || ""));
-      const room = rooms.get(presence.get(sender.id)?.room);
+      const asBot = req.path === "/api/admin/bot/gift";
+      if (asBot && !sender.is_admin) reject(403, "Yönetici yetkisi gerekiyor.");
+      const room = rooms.get(
+        asBot ? req.body?.room_id : presence.get(sender.id)?.room,
+      );
+      const bot = asBot ? botRoster.get(room?.id) : null;
+      if (asBot && !bot) reject(409, "Bot önce odaya katılmalı.");
       if (
         !cost ||
         !room ||
@@ -111,7 +118,8 @@ export function register({
       Object.assign(sender, result.a);
       Object.assign(recipient, result.b);
       room.xp = result.roomXp;
-      giftEvent(room, sender, recipient, gift);
+      const displaySender = bot ? { name: bot.name + " [BOT]" } : sender;
+      giftEvent(room, displaySender, recipient, gift);
       history.unshift({
         id,
         sender: sender.id,
@@ -123,7 +131,11 @@ export function register({
       if (history.length > 500) history.length = 500;
       await notice(
         recipient.id,
-        sender.name + " sana " + gift + " hediyesi gönderdi.",
+        displaySender.name +
+          " sana " +
+          gift +
+          " hediyesi gönderdi." +
+          (bot ? " Yönetici sponsorluğunda." : ""),
       ).catch(console.error);
       return {
         ok: true,

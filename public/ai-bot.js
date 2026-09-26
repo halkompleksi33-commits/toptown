@@ -36,9 +36,10 @@
     }
   };
   window.openAiBotAdmin = async () => {
-    const [info, roomData] = await Promise.all([
+    const [info, roomData, userData] = await Promise.all([
       api("admin/ai"),
       api("admin/rooms"),
+      api("admin"),
     ]);
     const dialog = document.createElement("dialog");
     dialog.innerHTML =
@@ -47,6 +48,8 @@
       `${info.configured ? "API anahtarı sunucuda tanımlı (bağlantı henüz test edilmedi)" : "OPENAI_API_KEY eksik"} · Model: ${info.model}`;
     const form = dialog.querySelector(".ai-config"),
       select = form.elements.room_id;
+    form.querySelector("p").textContent =
+      "Bot sorulara AI yanıtı verir. Günlük 100 API isteği sınırı korunur. Aşağıdaki koltuk ve hediye işlemleri yönetici tarafından gerçekleştirilir.";
     for (const [name, text] of [
       ["joined", "Bot odada bulunsun (kapatınca odadan çıkar)"],
       [
@@ -76,6 +79,74 @@
     };
     select.onchange = load;
     load();
+    const actions = document.createElement("section");
+    actions.innerHTML =
+      '<h3>Koltuk ve hediyeler</h3><p>Önce botu odaya alıp ayarları kaydedin. Koltuklar sunucu yeniden başlatılırsa boşalır.</p><label>Bot koltuğu<select class="bot-seat"><option value="">Ayakta</option></select></label><button type="button" class="bot-sit">Koltuğu uygula</button><label>Hediye alıcısı<select class="bot-recipient"></select></label><label>Hediye<select class="bot-gift"><option value="rose">🌹 Gül · 30 jeton</option><option value="cake">🎂 Pasta · 120 jeton</option><option value="rocket">🚀 Roket · 300 jeton</option><option value="crown">👑 Taç · 800 jeton</option></select></label><p>Hediye bot adına gönderilir; bedeli sizin yönetici bakiyenizden düşer. İşlem hediye geçmişinde sponsor yöneticiye kaydedilir.</p><button type="button" class="bot-send">Bot adına hediye gönder</button><p class="bot-action-status" role="status"></p>';
+    const seatSelect = actions.querySelector(".bot-seat"),
+      recipientSelect = actions.querySelector(".bot-recipient"),
+      actionStatus = actions.querySelector(".bot-action-status");
+    for (let i = 0; i < 9; i++) {
+      const option = document.createElement("option");
+      option.value = i;
+      option.textContent = i + 1 + ". koltuk";
+      seatSelect.append(option);
+    }
+    const refreshActions = async () => {
+      const id = select.value;
+      recipientSelect.replaceChildren();
+      if (!id) return;
+      const details = await api("admin/bot/room/" + encodeURIComponent(id));
+      if (select.value !== id || !dialog.isConnected) return;
+      seatSelect.value = details.seat === null ? "" : String(details.seat);
+      for (const user of userData.users.filter((u) =>
+        details.members.includes(u.id),
+      )) {
+        const option = document.createElement("option");
+        option.value = user.id;
+        option.textContent = user.name;
+        recipientSelect.append(option);
+      }
+    };
+    select.onchange = () => {
+      load();
+      refreshActions().catch((e) => (actionStatus.textContent = e.message));
+    };
+    const execute = async (button, path, body) => {
+      button.disabled = true;
+      actionStatus.textContent = "";
+      try {
+        await api(path, body);
+        actionStatus.textContent = "İşlem tamamlandı.";
+        await refreshActions();
+      } catch (error) {
+        actionStatus.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    };
+    actions.querySelector(".bot-sit").onclick = (e) =>
+      execute(e.target, "admin/bot/seat", {
+        room_id: select.value,
+        seat: seatSelect.value === "" ? null : Number(seatSelect.value),
+      });
+    actions.querySelector(".bot-send").onclick = (e) => {
+      if (!recipientSelect.value) {
+        actionStatus.textContent = "Önce odadan bir alıcı seçin.";
+        return;
+      }
+      if (
+        !confirm(
+          "Seçili hediyenin bedeli yönetici bakiyenizden düşecek. Gönderilsin mi?",
+        )
+      )
+        return;
+      execute(e.target, "admin/bot/gift", {
+        room_id: select.value,
+        recipient: recipientSelect.value,
+        gift: actions.querySelector(".bot-gift").value,
+      });
+    };
+    dialog.append(actions);
     form.onsubmit = async (e) => {
       e.preventDefault();
       const b = form.querySelector("button");
@@ -99,5 +170,6 @@
     dialog.onclose = () => dialog.remove();
     document.body.append(dialog);
     dialog.showModal();
+    refreshActions().catch((e) => (actionStatus.textContent = e.message));
   };
 })();

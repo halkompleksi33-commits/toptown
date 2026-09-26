@@ -2,7 +2,96 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import { register } from "../src/routes/ai-bot.js";
-import { botRoster } from "../src/bot-presence.js";
+import { botRoster, botSeats } from "../src/bot-presence.js";
+import { register as registerChat } from "../src/routes/chat.js";
+import { register as registerEconomy } from "../src/routes/economy.js";
+
+test("bot seats reject unauthorized, occupied and locked seats; departure releases seat", async (t) => {
+  botRoster.clear();
+  botSeats.clear();
+  const { request, context } = await fixture(t);
+  await request(
+    "admin/ai",
+    { room_id: "room", name: "Bot", enabled: true, joined: true },
+    "admin",
+  );
+  assert.equal(
+    (await request("admin/bot/seat", { room_id: "room", seat: 0 })).status,
+    403,
+  );
+  context.presence.get("member").seat = 0;
+  assert.equal(
+    (await request("admin/bot/seat", { room_id: "room", seat: 0 }, "admin"))
+      .status,
+    409,
+  );
+  assert.equal(
+    (await request("admin/bot/seat", { room_id: "room", seat: 1 }, "admin"))
+      .status,
+    200,
+  );
+  assert.equal((await request("seat", { seat: 1 })).status, 409);
+  context.rooms.get("room").locked = true;
+  assert.equal(
+    (await request("admin/bot/seat", { room_id: "room", seat: 2 }, "admin"))
+      .status,
+    403,
+  );
+  await request(
+    "admin/ai",
+    { room_id: "room", name: "Bot", enabled: false },
+    "admin",
+  );
+  assert.equal(botSeats.has("room"), false);
+});
+
+test("bot gifts spend sponsor coins, credit recipient and reject unauthorized or unfunded gifts", async (t) => {
+  const app = express();
+  app.use(express.json());
+  const users = new Map([
+    ["admin", { id: "admin", name: "Admin", is_admin: true, coins: 30, xp: 0 }],
+    ["member", { id: "member", name: "Member", coins: 100, xp: 0 }],
+  ]);
+  app.use((q, r, next) => {
+    q.user = users.get(q.headers["x-user"] || "admin");
+    next();
+  });
+  const rooms = new Map([["gift-room", { id: "gift-room" }]]),
+    presence = new Map([["member", { room: "gift-room" }]]);
+  botRoster.set("gift-room", { name: "GiftBot" });
+  registerEconomy({
+    app,
+    users,
+    rooms,
+    presence,
+    fail: (r, s, error) => r.status(s).json({ error }),
+    now: Date.now,
+    notice: async () => {},
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+    botRoster.delete("gift-room");
+  });
+  const send = (user = "admin") =>
+    fetch(`http://127.0.0.1:${server.address().port}/api/admin/bot/gift`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user": user },
+      body: JSON.stringify({
+        room_id: "gift-room",
+        recipient: "member",
+        gift: "rose",
+      }),
+    });
+  assert.equal((await send("member")).status, 403);
+  assert.equal((await send()).status, 200);
+  assert.equal(users.get("admin").coins, 0);
+  assert.equal(users.get("member").coins, 130);
+  assert.equal((await send()).status, 400);
+  assert.equal(users.get("member").coins, 130);
+});
 
 test("bot joins, starts conversation with cooldown, stays quiet in empty room and leaves", async (t) => {
   botRoster.clear();
@@ -60,6 +149,10 @@ async function fixture(t, options = {}) {
     apiKey: "test-only-key",
     scheduler: false,
     ...options,
+  });
+  registerChat({
+    ...context,
+    people: (id) => [...context.presence.values()].filter((p) => p.room === id),
   });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));

@@ -2,6 +2,12 @@
 
 ## OpenAI sohbet botu
 
+### Bot koltuğu ve yönetici sponsorlu hediyeler
+
+AI botlar panelinde odaya katılmış bot için 1–9 koltuk veya Ayakta seçilebilir. İnsanlarla koltuk çakışması ve kilitli koltuğa oturma engellenir. Bot odadan çıkınca koltuğu boşalır; koltuk durumu yeniden başlatmada sıfırlanır. Bot kamera veya mikrofon kullanmaz.
+
+Admin seçili odadaki alıcıya bot adına hediye gönderebilir. Bedel işlemi yapan adminin mevcut jetonlarından düşer, alıcıya eklenir. Hediye geçmişinde sponsor admin kayıtlıdır; animasyon ve bildirimde bot adı görünür. Otomatik gönderim ve ayrı bot cüzdanı yoktur. Bot hediye alıcısı değildir.
+
 Admin AI botlar ekranındaki **Bot odada bulunsun** seçimi giriş/çıkış kaydı üretir ve botu katılımcı listesine ekler. **Kendiliğinden sohbet başlatsın** açıkken yalnızca insan bulunan odalarda, en sık beş dakikada bir ücretsiz hazır açılış mesajı paylaşılır. Aktif sohbetin son mesajı bir dakikadan yeniyse atlanır. Bu açılışlar OpenAI çağrısı değildir; oda geçmişi dışarı gönderilmez. Botlar insan sayacına dahil edilmez, medya almaz ve hediye alıcısı olarak listelenmez. Ayarlar PostgreSQL'de kalıcıdır.
 
 Railway sunucusunda `OPENAI_API_KEY` ayarlayın. Anahtarı koda, tarayıcıya veya GitHub'a koymayın. İsteğe bağlı `OPENAI_MODEL` varsayılanı `gpt-4.1-mini` modelidir. Yönetici panelindeki **AI botlar** düğmesinden oda ve bot adı seçerek etkinleştirin. Oda içindeki **AI bota sor** formu açık onayla yalnızca yazılan soruyu OpenAI Responses API'ye gönderir (`store:false`); oda geçmişi, özel mesajlar ve hesap bilgileri gönderilmez. Yanıt odada `[BOT]` etiketiyle görünür ve mesaj geçmişine kaydedilir.

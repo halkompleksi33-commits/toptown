@@ -3,6 +3,7 @@ let token = sessionStorage.getItem("toptown-session") || "",
   user,
   room,
   people = [],
+  roomBots = [],
   after = 0,
   polling = false,
   mode = "register",
@@ -163,6 +164,7 @@ async function refresh() {
   try {
     const d = await api("state?after=" + after);
     people = d.people;
+    roomBots = d.bots || [];
     const imageButton = $("#roomImageButton");
     if (imageButton) imageButton.hidden = d.room.owner !== user.id;
     const self = people.find((p) => p.id === user.id);
@@ -248,7 +250,7 @@ function draw() {
   if (!user) return;
   $("#seats").replaceChildren(
     ...Array.from({ length: 9 }, (_, i) => {
-      const p = people.find((x) => x.seat === i),
+      const p = [...people, ...roomBots].find((x) => x.seat === i),
         b = document.createElement("button");
       b.className =
         "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "");
