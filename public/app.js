@@ -273,6 +273,7 @@ function draw() {
         p.id,
         p.seat,
         p.avatar || "",
+        p.level || 1,
         p.id === user.id && !!stream,
         !!remoteStreams.get(p.id),
       ].join("|"),
@@ -302,7 +303,9 @@ function draw() {
             "width:100%;height:100%;object-fit:cover;border-radius:50%";
           avatar.append(image);
         } else avatar.textContent = p ? p.emoji : "+";
-        label.textContent = p ? p.name : i + 1 + ". koltuk · Otur";
+        label.textContent = p
+          ? p.name + " · Lv." + (p.level || 1)
+          : i + 1 + ". koltuk · Otur";
         b.append(avatar, label);
         if (p)
           seatVideo(
@@ -327,7 +330,7 @@ function draw() {
       const e = document.createElement("span");
       e.className = "person name-" + (p.name_color || "default");
       e.dataset.speaker = p.id;
-      e.textContent = p.emoji + " " + p.name;
+      e.textContent = p.emoji + " " + p.name + " · Lv." + (p.level || 1);
       return e;
     }),
   );
@@ -549,16 +552,22 @@ $("#adminButton").onclick = safe(async () => {
     ...d.users.map((u) => {
       const x = document.createElement("div");
       x.className = "adminrow";
-      x.textContent =
-        (u.emoji || "🙂") +
-        " " +
-        u.name +
-        (u.is_admin ? " · Yönetici" : "") +
-        " · " +
+      const identity = document.createElement("div"),
+        name = document.createElement("strong"),
+        meta = document.createElement("small"),
+        stat = document.createElement("span");
+      identity.className = "admin-identity";
+      name.textContent = (u.emoji || "🙂") + " " + u.name;
+      meta.textContent =
+        (u.is_admin ? "Yönetici · " : "Üye · ") +
         u.city +
-        " · 🪙 " +
-        u.coins +
-        (u.created ? " · Kayıt: " + new Date(+u.created).toLocaleString("tr-TR") : "");
+        (u.created
+          ? " · Kayıt " + new Date(+u.created).toLocaleString("tr-TR")
+          : "");
+      stat.className = "admin-user-level";
+      stat.textContent = "Lv." + (u.level || 1) + " · 🪙 " + u.coins;
+      identity.append(name, meta);
+      x.append(identity, stat);
       return x;
     }),
   );

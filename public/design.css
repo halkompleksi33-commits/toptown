@@ -469,6 +469,7 @@ header #onlineBadge {
   white-space: nowrap;
   font-size: 12px;
 }
+.seat.occupied > span:last-child { color: var(--mint); font-weight: 750; }
 .seat .avatar {
   font-size: 27px;
 }
@@ -521,6 +522,8 @@ header #onlineBadge {
   background: var(--surface);
   border-radius: 20px;
 }
+.admin-identity { display:grid; gap:4px; min-width:0; }.admin-identity strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.admin-identity small { color:var(--muted); font-size:11px; }.admin-user-level { margin-left:auto; white-space:nowrap; padding:7px 10px; border-radius:12px; background:#f6c86818; color:#f6c868; font-size:12px; font-weight:800; }
+@media(max-width:520px){.adminrow{align-items:flex-start;flex-wrap:wrap}.admin-user-level{margin-left:0}}
 #chat {
   height: clamp(240px, 42dvh, 440px);
   overflow: auto;
