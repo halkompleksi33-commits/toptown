@@ -245,7 +245,12 @@ header #onlineBadge {
 #authSubmit {
   width: 100%;
 }
-.guest-button { width: 100%; margin-top: 12px; background: transparent; color: var(--muted); }
+.guest-button { width:100%; margin-top:12px; position:relative; overflow:hidden; border-color:#a790ff99; background:linear-gradient(110deg,#5e48ce,#a766d0,#4cb9c5); background-size:220% 220%; color:#fff; font-weight:800; letter-spacing:.1px; box-shadow:0 9px 28px #7a61e955; animation:guest-glow 3s ease infinite; }
+.guest-button:before { content:""; position:absolute; inset:0; background:linear-gradient(105deg,transparent 30%,#fff7 50%,transparent 70%); transform:translateX(-130%); animation:guest-shine 2.8s ease-in-out infinite; }
+.guest-button span { position:relative; z-index:1; font-size:18px; }
+@keyframes guest-glow { 50% { background-position:100% 50%; box-shadow:0 11px 34px #8d70ff99; } }
+@keyframes guest-shine { 55%,100% { transform:translateX(130%); } }
+@media (prefers-reduced-motion: reduce) { .guest-button,.guest-button:before { animation:none; } }
 .guest-notice { margin: 16px 0 0; padding: 13px 16px; border: 1px dashed var(--accent); border-radius: 16px; font-size: 13px; }
 .welcome {
   display: flex;
