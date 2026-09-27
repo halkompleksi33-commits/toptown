@@ -12,6 +12,7 @@ export function register(context) {
     issueSession,
     hashPassword,
     verifyPassword,
+    now,
   } = context;
   app.post("/api/register", async (q, r) => {
     let b = q.body || {},
@@ -42,6 +43,7 @@ export function register(context) {
       emoji: "🙂",
       avatar: "",
       xp: 0,
+      created: now(),
     };
     try {
       await save(u);

@@ -46,6 +46,7 @@ export function register(context) {
           users: [...users.values()].map((u) => ({
             ...prof(u),
             is_admin: u.is_admin,
+            created: u.created || null,
           })),
         })
       : fail(r, 403, "Yönetici yetkisi gerekiyor."),

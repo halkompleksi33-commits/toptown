@@ -556,7 +556,8 @@ $("#adminButton").onclick = safe(async () => {
         " · " +
         u.city +
         " · 🪙 " +
-        u.coins;
+        u.coins +
+        (u.created ? " · Kayıt: " + new Date(+u.created).toLocaleString("tr-TR") : "");
       return x;
     }),
   );

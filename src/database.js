@@ -60,6 +60,11 @@ export async function migrate(pool) {
       await client.query(await readFile(new URL("./migrations/005-profile-cosmetics.sql", import.meta.url), "utf8"));
       await client.query("INSERT INTO schema_migrations(version) VALUES(5)");
     }
+    const registrationTimeInstalled = await client.query("SELECT 1 FROM schema_migrations WHERE version=6");
+    if (!registrationTimeInstalled.rowCount) {
+      await client.query(await readFile(new URL("./migrations/006-user-registration-time.sql", import.meta.url), "utf8"));
+      await client.query("INSERT INTO schema_migrations(version) VALUES(6)");
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
