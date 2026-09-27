@@ -97,7 +97,8 @@ async function loadRooms() {
   const badge = $("#onlineBadge");
   if (badge)
     badge.textContent =
-      "● Çevrimiçi: " + rows.reduce((sum, row) => sum + row.online, 0);
+      (badge.textContent.split(" · ")[0] || "Ziyaretçi: 500") +
+      " · ● Çevrimiçi: " + rows.reduce((sum, row) => sum + row.online, 0);
   $("#rooms").replaceChildren(
     ...rows.map((r) => {
       const b = document.createElement("button");

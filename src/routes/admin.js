@@ -11,6 +11,19 @@ export function register(context) {
     prof,
     leaveRoom,
   } = context;
+  let visitors = 500;
+  app.post("/api/visit", async (_, r, next) => {
+    try {
+      if (db) {
+        visitors = +(
+          await db.query(
+            "INSERT INTO site_stats(key,value) VALUES('visitors',501) ON CONFLICT(key) DO UPDATE SET value=site_stats.value+1 RETURNING value",
+          )
+        ).rows[0].value;
+      } else visitors++;
+      r.json({ visitors });
+    } catch (error) { next(error); }
+  });
   app.post("/api/logout", async (q, r) => {
     await leaveRoom(q.user.id);
     const token = (q.get("authorization") || "").replace(/^Bearer /, "");

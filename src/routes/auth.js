@@ -74,7 +74,7 @@ export function register(context) {
   });
   app.use("/api", (q, r, n) => {
     if (
-      ["/health", "/login", "/register"].includes(q.path) ||
+      ["/health", "/login", "/register", "/visit"].includes(q.path) ||
       (q.path === "/rooms" && q.method === "GET")
     )
       return n();

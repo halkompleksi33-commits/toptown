@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS site_stats(key TEXT PRIMARY KEY, value BIGINT NOT NULL);
+INSERT INTO site_stats(key,value) VALUES('visitors',500) ON CONFLICT(key) DO NOTHING;

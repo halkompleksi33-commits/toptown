@@ -65,6 +65,11 @@ export async function migrate(pool) {
       await client.query(await readFile(new URL("./migrations/006-user-registration-time.sql", import.meta.url), "utf8"));
       await client.query("INSERT INTO schema_migrations(version) VALUES(6)");
     }
+    const visitorCounterInstalled = await client.query("SELECT 1 FROM schema_migrations WHERE version=7");
+    if (!visitorCounterInstalled.rowCount) {
+      await client.query(await readFile(new URL("./migrations/007-visitor-counter.sql", import.meta.url), "utf8"));
+      await client.query("INSERT INTO schema_migrations(version) VALUES(7)");
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
