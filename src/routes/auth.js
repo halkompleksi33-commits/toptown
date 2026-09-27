@@ -71,7 +71,11 @@ export function register(context) {
     r.json({ token: t, user: prof(u) });
   });
   app.use("/api", (q, r, n) => {
-    if (["/health", "/login", "/register"].includes(q.path)) return n();
+    if (
+      ["/health", "/login", "/register"].includes(q.path) ||
+      (q.path === "/rooms" && q.method === "GET")
+    )
+      return n();
     q.user = me(q);
     if (!q.user) return fail(r, 401, "Oturum sona erdi. Tekrar giriş yapın.");
     n();

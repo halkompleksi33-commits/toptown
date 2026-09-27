@@ -245,6 +245,8 @@ header #onlineBadge {
 #authSubmit {
   width: 100%;
 }
+.guest-button { width: 100%; margin-top: 12px; background: transparent; color: var(--muted); }
+.guest-notice { margin: 16px 0 0; padding: 13px 16px; border: 1px dashed var(--accent); border-radius: 16px; font-size: 13px; }
 .welcome {
   display: flex;
   align-items: center;

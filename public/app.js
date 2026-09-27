@@ -7,6 +7,7 @@ let token = sessionStorage.getItem("toptown-session") || "",
   after = 0,
   polling = false,
   mode = "register",
+  guest = false,
   timer,
   homeTimer,
   stream,
@@ -53,9 +54,11 @@ function show(x) {
   ["auth", "home", "room"].forEach((i) => ($("#" + i).hidden = i !== x));
   $("#identity").textContent = user
     ? (user.emoji || "🙂") + " " + user.name
-    : "";
+    : guest ? "👋 Misafir" : "";
   $("#logout").hidden = !user;
   $("#profileButton").hidden = !user;
+  $("#guestNotice").hidden = !guest;
+  $("#createRoom").hidden = !user;
 }
 const safe = (f) => async (e) => {
   try {
@@ -76,11 +79,16 @@ function tab(m) {
 }
 $("#registerTab").onclick = () => tab("register");
 $("#loginTab").onclick = () => tab("login");
+$("#guestButton").onclick = () => {
+  guest = true;
+  home();
+};
 $("#authForm").onsubmit = safe(async (e) => {
   e.preventDefault();
   const d = await api(mode, Object.fromEntries(new FormData(e.target)));
   token = d.token;
   user = d.user;
+  guest = false;
   sessionStorage.setItem("toptown-session", token);
   await home();
 });
@@ -121,15 +129,22 @@ async function home() {
   room = null;
   stop();
   show("home");
-  $("#greeting").textContent = "Merhaba, " + user.name + ".";
-  $("#adminButton").hidden = !(await api("me")).admin;
+  $("#greeting").textContent = user ? "Merhaba, " + user.name + "." : "TopTown odalarını keşfet.";
+  $("#adminButton").hidden = !user || !(await api("me")).admin;
   await loadRooms();
   clearInterval(homeTimer);
   homeTimer = setInterval(() => {
-    if (!room && user && !document.hidden) loadRooms().catch(() => {});
+    if (!room && (user || guest) && !document.hidden) loadRooms().catch(() => {});
   }, 10000);
 }
 async function join(id, isPrivate = false) {
+  if (!user) {
+    guest = false;
+    show("auth");
+    tab("register");
+    toast("Odaya katılmak için hesap oluştur veya giriş yap.");
+    return;
+  }
   const code = isPrivate ? prompt("Oda şifresi") : "";
   if (code === null) return;
   await api("join", { room: id, code });
@@ -154,6 +169,7 @@ $("#logout").onclick = safe(async () => {
   await api("logout", {});
   token = "";
   user = null;
+  guest = false;
   clearInterval(homeTimer);
   sessionStorage.removeItem("toptown-session");
   stop();
