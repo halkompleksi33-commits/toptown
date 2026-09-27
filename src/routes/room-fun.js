@@ -1,7 +1,9 @@
 import { randomUUID, randomInt } from "node:crypto";
 
 const activities = new WeakMap(),
-  gifts = new WeakMap();
+  gifts = new WeakMap(),
+  propertyGames = new WeakMap();
+const board = ["Başlangıç", "Liman", "Çarşı", "Park", "Müze", "Sahil", "Kafe", "Sinema", "Meydan", "Kütüphane", "Marina", "Festival"];
 const questions = [
   ["Türkiye'nin başkenti?", ["Ankara", "İstanbul", "İzmir"], 0],
   ["Güneş sistemindeki en büyük gezegen?", ["Mars", "Jüpiter", "Venüs"], 1],
@@ -44,14 +46,48 @@ export function roomFun(room, userId) {
         : [],
     };
   }
+  const game = propertyGames.get(room);
   return {
     activity,
     gifts: (gifts.get(room) || []).filter(
       (g) => Date.now() - g.created < 15000,
     ),
+    propertyGame: game ? {
+      players: game.players.map((p) => ({ id:p.id,name:p.name,position:p.position,cash:p.cash,properties:p.properties })),
+      turn: game.players[game.turn]?.id || null,
+      lastRoll: game.lastRoll || null,
+      log: game.log.slice(-4),
+      board,
+    } : null,
   };
 }
 export function register({ app, rooms, presence, fail }) {
+  app.post("/api/property-game", (q,r) => {
+    const member=presence.get(q.user.id), room=rooms.get(member?.room);
+    if(!room) return fail(r,409,"Önce odaya katılın.");
+    if(member.muted) return fail(r,403,"Susturulan kullanıcı oyuna katılamaz.");
+    const action=q.body?.action; let game=propertyGames.get(room);
+    if(action==="start") {
+      if(room.owner!==q.user.id && !q.user.is_admin) return fail(r,403,"Oyunu yalnızca oda sahibi veya yönetici başlatabilir.");
+      game={players:[],turn:0,lastRoll:null,log:["Emlak Turu başladı. En fazla 4 kişi katılabilir."]}; propertyGames.set(room,game);
+    } else if(action==="join") {
+      if(!game) return fail(r,409,"Önce oda sahibi oyunu başlatmalı.");
+      if(game.players.some(p=>p.id===q.user.id)) return fail(r,409,"Zaten oyundasın.");
+      if(game.players.length>=4) return fail(r,409,"Oyun en fazla 4 kişiyle oynanır.");
+      game.players.push({id:q.user.id,name:q.user.name,position:0,cash:800,properties:[]}); game.log.push(q.user.name+" oyuna katıldı.");
+    } else if(action==="roll") {
+      if(!game || game.players.length<2) return fail(r,409,"Zar için en az 2 oyuncu gerekli.");
+      const player=game.players[game.turn];
+      if(player?.id!==q.user.id) return fail(r,403,"Sıra diğer oyuncuda.");
+      const roll=randomInt(1,7); player.position=(player.position+roll)%board.length;
+      const spot=board[player.position];
+      if(player.position===0) { player.cash+=100; game.log.push(player.name+" başlangıç bonusu aldı (+100)."); }
+      else if(!game.players.some(p=>p.id!==player.id&&p.properties.includes(player.position)) && !player.properties.includes(player.position)) { const price=80+player.position*10; if(player.cash>=price){player.cash-=price;player.properties.push(player.position);game.log.push(player.name+" "+spot+" arsasını aldı (-"+price+").");} else game.log.push(player.name+" "+spot+" alanına geldi."); }
+      else { const owner=game.players.find(p=>p.id!==player.id&&p.properties.includes(player.position)); if(owner){const rent=30+player.position*5;player.cash=Math.max(0,player.cash-rent);owner.cash+=rent;game.log.push(player.name+", "+owner.name+"'a "+rent+" kira ödedi.");} }
+      game.lastRoll={name:player.name,roll,spot}; game.turn=(game.turn+1)%game.players.length;
+    } else return fail(r,400,"Geçersiz oyun işlemi.");
+    r.json(roomFun(room,q.user.id));
+  });
   app.post("/api/activity", (q, r) => {
     const member = presence.get(q.user.id),
       room = rooms.get(member?.room);

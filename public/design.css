@@ -916,6 +916,10 @@ dialog::backdrop {
   margin: 12px 0;
   background: #9775fa12;
 }
+.property-game { margin:12px 0; padding:14px; border:1px solid #f6c86855; border-radius:18px; background:linear-gradient(120deg,#f6c86815,#9a8bff12); }
+.property-game > div:first-child { display:flex; justify-content:space-between; gap:8px; align-items:center; }.property-game small { color:var(--muted); }
+.property-players { display:flex; gap:7px; overflow:auto; margin:10px 0; }.property-players span { white-space:nowrap; padding:7px 10px; border-radius:12px; background:var(--raised); font-size:12px; }.property-players .turn { outline:2px solid #f6c868; }
+.property-game button { margin-right:8px; font-size:12px; }
 .fun-heading {
   display: flex;
   align-items: center;
