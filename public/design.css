@@ -960,6 +960,7 @@ dialog::backdrop {
   pointer-events: none;
   text-align: center;
 }
+.join-celebration { position:fixed; z-index:101; top:18%; left:50%; transform:translateX(-50%); display:grid; justify-items:center; gap:8px; min-width:220px; padding:18px 26px; border:1px solid #ffffff55; border-radius:24px; background:linear-gradient(135deg,#5b3daeea,#248c95e8); color:#fff; box-shadow:0 18px 60px #7e66ff88; pointer-events:none; animation:join-pop 2.4s ease both; }.join-celebration[hidden]{display:none}.join-celebration span{font-size:42px;animation:join-spin .65s ease-out}.join-celebration strong{font-size:14px}@keyframes join-pop{0%{opacity:0;transform:translate(-50%,-24px) scale(.75)}18%,78%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-12px) scale(.9)}}@keyframes join-spin{from{transform:rotate(-30deg) scale(.35)}to{transform:rotate(0) scale(1)}}
 .gift-celebration[hidden] {
   display: none;
 }

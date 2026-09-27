@@ -22,6 +22,26 @@ const toast = (t) => {
   clearTimeout(timer);
   timer = setTimeout(() => ($("#toast").hidden = true), 4000);
 };
+let joinAnimationTimer;
+function playJoinAnimation(name) {
+  let overlay = $("#joinCelebration");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "joinCelebration";
+    overlay.className = "join-celebration";
+    overlay.setAttribute("role", "status");
+    overlay.hidden = true;
+    document.body.append(overlay);
+  }
+  overlay.replaceChildren();
+  const icon = document.createElement("span"), label = document.createElement("strong");
+  icon.textContent = "🎉";
+  label.textContent = name + " odaya katıldı";
+  overlay.append(icon, label);
+  overlay.hidden = false;
+  clearTimeout(joinAnimationTimer);
+  joinAnimationTimer = setTimeout(() => (overlay.hidden = true), 2400);
+}
 async function api(p, b) {
   const r = await fetch("/api/" + p, {
       method: b ? "POST" : "GET",
@@ -221,6 +241,7 @@ async function refresh() {
         p.className = "message message--" + m.kind + (m.user_id === user.id ? " bubble-" + (user.bubble_theme || "default") : "");
         p.textContent = m.name + (m.kind === "chat" ? ": " : " ") + m.text;
         $("#chat").append(p);
+        if (m.kind === "join") playJoinAnimation(m.name);
         after = Math.max(after, m.id);
       }
     }
