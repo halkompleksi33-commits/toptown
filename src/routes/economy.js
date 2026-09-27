@@ -20,6 +20,13 @@ export function register({
     { id: "rose-badge", icon: "🌹", name: "Gül Rozeti", price: 250 },
     { id: "rocket-badge", icon: "🚀", name: "Roket Rozeti", price: 600 },
     { id: "crown-badge", icon: "👑", name: "Taç Rozeti", price: 1200 },
+    { id: "frame-neon", icon: "💠", name: "Neon Çerçeve", price: 350, slot: "avatar_frame", value: "neon" },
+    { id: "frame-gold", icon: "✨", name: "Altın Çerçeve", price: 700, slot: "avatar_frame", value: "gold" },
+    { id: "color-pink", icon: "🌸", name: "Pembe İsim", price: 300, slot: "name_color", value: "pink" },
+    { id: "color-mint", icon: "🟢", name: "Mint İsim", price: 300, slot: "name_color", value: "mint" },
+    { id: "join-spark", icon: "🎉", name: "Parıltılı Giriş", price: 500, slot: "join_effect", value: "spark" },
+    { id: "bubble-lavender", icon: "💜", name: "Lavanta Balon", price: 400, slot: "bubble_theme", value: "lavender" },
+    { id: "bubble-ocean", icon: "🌊", name: "Okyanus Balon", price: 400, slot: "bubble_theme", value: "ocean" },
   ];
   const dayKey = () => new Date(now()).toISOString().slice(0, 10);
   let queue = Promise.resolve();
@@ -195,7 +202,7 @@ export function register({
       let claimed = [];
       if (db) claimed = (await db.query("SELECT task FROM economy_task_claims WHERE user_id=$1 AND day=$2", [user.id,today])).rows.map((x)=>x.task);
       else claimed = tasks.filter((t)=>taskClaims.has([user.id,t.id,today].join(":"))).map((t)=>t.id);
-      return { coins:user.coins, xp:user.xp || 0, level:1+Math.floor((user.xp||0)/1000), store:store.map((item)=>({...item,owned:owned.includes(item.id)})), tasks:tasks.map((t)=>({...t,claimed:claimed.includes(t.id)})), collection:{ sent, received, owned } };
+      return { coins:user.coins, xp:user.xp || 0, level:1+Math.floor((user.xp||0)/1000), cosmetics:{avatar_frame:user.avatar_frame||"none",name_color:user.name_color||"default",join_effect:user.join_effect||"none",bubble_theme:user.bubble_theme||"default"}, store:store.map((item)=>({...item,owned:owned.includes(item.id)})), tasks:tasks.map((t)=>({...t,claimed:claimed.includes(t.id)})), collection:{ sent, received, owned } };
   }
   app.get("/api/economy", async (req, res, next) => {
     try { res.json(await overviewFor(req.user)); } catch (error) { next(error); }
@@ -211,11 +218,19 @@ export function register({
       }
       if (exists) reject(409,"Bu rozet zaten koleksiyonunda.");
       if (balance < item.price) reject(400,"Yeterli jeton yok.");
-      if (client) { await client.query("UPDATE users SET coins=coins-$1 WHERE id=$2",[item.price,user.id]); await client.query("INSERT INTO economy_purchases(user_id,item,created) VALUES($1,$2,$3)",[user.id,item.id,now()]); }
+      if (client) { await client.query("UPDATE users SET coins=coins-$1 WHERE id=$2",[item.price,user.id]); if(item.slot) await client.query("UPDATE users SET "+item.slot+"=$1 WHERE id=$2",[item.value,user.id]); await client.query("INSERT INTO economy_purchases(user_id,item,created) VALUES($1,$2,$3)",[user.id,item.id,now()]); }
       return balance-item.price;
     });
-    user.coins = result; let items=purchases.get(user.id)||new Set(); items.add(item.id); purchases.set(user.id,items);
+    user.coins = result; if(item.slot) user[item.slot]=item.value; let items=purchases.get(user.id)||new Set(); items.add(item.id); purchases.set(user.id,items);
     return { ok:true, coins:result, item:item.id };
+  }));
+  app.post("/api/economy/equip", handler(async(req)=>{
+    const item=store.find((x)=>x.id===req.body?.item),user=req.user;
+    if(!item?.slot) reject(400,"Bu ürün giyilebilir bir kozmetik değil.");
+    const has=db?(await db.query("SELECT 1 FROM economy_purchases WHERE user_id=$1 AND item=$2",[user.id,item.id])).rowCount>0:(purchases.get(user.id)?.has(item.id));
+    if(!has) reject(403,"Önce bu kozmetiği mağazadan almalısın.");
+    if(db) await db.query("UPDATE users SET "+item.slot+"=$1 WHERE id=$2",[item.value,user.id]);
+    user[item.slot]=item.value; return {ok:true,slot:item.slot,value:item.value};
   }));
   app.post("/api/economy/task", handler(async (req) => {
     const task = String(req.body?.task||""), today=dayKey(), user=req.user;

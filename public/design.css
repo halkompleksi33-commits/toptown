@@ -441,6 +441,12 @@ header #onlineBadge {
   background: var(--raised);
   font-size: 28px;
 }
+.frame-neon { border: 3px solid #71f7ff !important; box-shadow: 0 0 14px #71f7ff99; }
+.frame-gold { border: 3px solid #f6c868 !important; box-shadow: 0 0 14px #f6c86888; }
+.name-pink { color: #ff9fce; }.name-mint { color: #84e4c4; }
+.bubble-lavender { background: #7967c9 !important; }.bubble-ocean { background: #167f98 !important; }
+.effect-spark { animation: cosmetic-spark 1.6s ease-in-out infinite; }
+@keyframes cosmetic-spark { 50% { box-shadow: 0 0 0 6px #f6c86844, 0 0 24px #f6c86888; } }
 .seat.occupied .avatar {
   border: 2px solid var(--accent);
   background: #9789ef22;

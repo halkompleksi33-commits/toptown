@@ -201,7 +201,7 @@ async function refresh() {
     for (const m of d.messages) {
       if (m.id > after) {
         const p = document.createElement("p");
-        p.className = "message message--" + m.kind;
+        p.className = "message message--" + m.kind + (m.user_id === user.id ? " bubble-" + (user.bubble_theme || "default") : "");
         p.textContent = m.name + (m.kind === "chat" ? ": " : " ") + m.text;
         $("#chat").append(p);
         after = Math.max(after, m.id);
@@ -269,11 +269,11 @@ function draw() {
         const p = all.find((x) => x.seat === i),
           b = document.createElement("button");
         b.className =
-          "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "");
+          "seat" + (p ? " occupied" : "") + (p?.id === user.id ? " mine" : "") + (p?.join_effect === "spark" ? " effect-spark" : "");
         if (p) b.dataset.speaker = p.id;
         const avatar = document.createElement("span"),
           label = document.createElement("span");
-        avatar.className = "avatar";
+        avatar.className = "avatar frame-" + (p?.avatar_frame || "none");
         if (
           p?.avatar &&
           /^data:image\/(png|jpeg|webp|gif);base64,/.test(p.avatar)
@@ -308,7 +308,7 @@ function draw() {
   $("#people").replaceChildren(
     ...people.map((p) => {
       const e = document.createElement("span");
-      e.className = "person";
+      e.className = "person name-" + (p.name_color || "default");
       e.dataset.speaker = p.id;
       e.textContent = p.emoji + " " + p.name;
       return e;

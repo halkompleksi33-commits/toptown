@@ -55,6 +55,11 @@ export async function migrate(pool) {
       );
       await client.query("INSERT INTO schema_migrations(version) VALUES(4)");
     }
+    const cosmeticsInstalled = await client.query("SELECT 1 FROM schema_migrations WHERE version=5");
+    if (!cosmeticsInstalled.rowCount) {
+      await client.query(await readFile(new URL("./migrations/005-profile-cosmetics.sql", import.meta.url), "utf8"));
+      await client.query("INSERT INTO schema_migrations(version) VALUES(5)");
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

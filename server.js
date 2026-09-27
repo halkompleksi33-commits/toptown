@@ -54,6 +54,10 @@ const hash = (x) => createHash("sha256").update(String(x)).digest("hex"),
     avatar: u.avatar || "",
     xp: u.xp || 0,
     level: 1 + Math.floor((u.xp || 0) / 1000),
+    avatar_frame: u.avatar_frame || "none",
+    name_color: u.name_color || "default",
+    join_effect: u.join_effect || "none",
+    bubble_theme: u.bubble_theme || "default",
   }),
   yt = (x) =>
     x
