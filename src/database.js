@@ -43,6 +43,18 @@ export async function migrate(pool) {
       );
       await client.query("INSERT INTO schema_migrations(version) VALUES(3)");
     }
+    const economyInstalled = await client.query(
+      "SELECT 1 FROM schema_migrations WHERE version=4",
+    );
+    if (!economyInstalled.rowCount) {
+      await client.query(
+        await readFile(
+          new URL("./migrations/004-economy-center.sql", import.meta.url),
+          "utf8",
+        ),
+      );
+      await client.query("INSERT INTO schema_migrations(version) VALUES(4)");
+    }
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

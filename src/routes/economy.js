@@ -13,7 +13,15 @@ export function register({
   notice,
 }) {
   const history = [],
-    rewards = new Map();
+    rewards = new Map(),
+    purchases = new Map(),
+    taskClaims = new Set();
+  const store = [
+    { id: "rose-badge", icon: "🌹", name: "Gül Rozeti", price: 250 },
+    { id: "rocket-badge", icon: "🚀", name: "Roket Rozeti", price: 600 },
+    { id: "crown-badge", icon: "👑", name: "Taç Rozeti", price: 1200 },
+  ];
+  const dayKey = () => new Date(now()).toISOString().slice(0, 10);
   let queue = Promise.resolve();
   // Serialise economy operations on the supported single-instance deployment.
   const exclusive = (fn) => {
@@ -163,6 +171,67 @@ export function register({
             .slice(0, 100),
     }),
   );
+  async function overviewFor(user) {
+      const today = dayKey();
+      let sent = 0, received = 0, messagesToday = 0, owned = [];
+      if (db) {
+        const midnight = new Date(today + "T00:00:00.000Z").getTime();
+        const [gifts, chats, inventory] = await Promise.all([
+          db.query("SELECT COALESCE(SUM(CASE WHEN sender=$1 THEN 1 ELSE 0 END),0) sent,COALESCE(SUM(CASE WHEN recipient=$1 THEN 1 ELSE 0 END),0) received FROM gift_history WHERE (sender=$1 OR recipient=$1) AND created >= $2", [user.id, midnight]),
+          db.query("SELECT count(*) count FROM messages WHERE user_id=$1 AND kind='chat' AND created >= $2", [user.id, midnight]),
+          db.query("SELECT item FROM economy_purchases WHERE user_id=$1", [user.id]),
+        ]);
+        sent = +gifts.rows[0].sent; received = +gifts.rows[0].received;
+        messagesToday = +chats.rows[0].count; owned = inventory.rows.map((x) => x.item);
+      } else {
+        owned = [...(purchases.get(user.id) || new Set())];
+        messagesToday = [...(history || [])].filter((x) => x.sender === user.id && x.created >= Date.now()-86400000).length;
+      }
+      const tasks = [
+        { id: "hello", title: "Sohbete katıl", progress: messagesToday > 0 ? 1 : 0, target: 1, reward: 25 },
+        { id: "chat3", title: "3 mesaj gönder", progress: Math.min(messagesToday,3), target: 3, reward: 50 },
+        { id: "gift", title: "Bir hediye gönder", progress: Math.min(sent,1), target: 1, reward: 75 },
+      ];
+      let claimed = [];
+      if (db) claimed = (await db.query("SELECT task FROM economy_task_claims WHERE user_id=$1 AND day=$2", [user.id,today])).rows.map((x)=>x.task);
+      else claimed = tasks.filter((t)=>taskClaims.has([user.id,t.id,today].join(":"))).map((t)=>t.id);
+      return { coins:user.coins, xp:user.xp || 0, level:1+Math.floor((user.xp||0)/1000), store:store.map((item)=>({...item,owned:owned.includes(item.id)})), tasks:tasks.map((t)=>({...t,claimed:claimed.includes(t.id)})), collection:{ sent, received, owned } };
+  }
+  app.get("/api/economy", async (req, res, next) => {
+    try { res.json(await overviewFor(req.user)); } catch (error) { next(error); }
+  });
+  app.post("/api/economy/buy", handler(async (req) => {
+    const item = store.find((x) => x.id === req.body?.item), user = req.user;
+    if (!item) reject(400, "Mağaza ürünü bulunamadı.");
+    const result = await transaction(async (client) => {
+      let balance = user.coins, exists = purchases.get(user.id)?.has(item.id);
+      if (client) {
+        balance = +(await client.query("SELECT coins FROM users WHERE id=$1 FOR UPDATE",[user.id])).rows[0].coins;
+        exists = (await client.query("SELECT 1 FROM economy_purchases WHERE user_id=$1 AND item=$2",[user.id,item.id])).rowCount > 0;
+      }
+      if (exists) reject(409,"Bu rozet zaten koleksiyonunda.");
+      if (balance < item.price) reject(400,"Yeterli jeton yok.");
+      if (client) { await client.query("UPDATE users SET coins=coins-$1 WHERE id=$2",[item.price,user.id]); await client.query("INSERT INTO economy_purchases(user_id,item,created) VALUES($1,$2,$3)",[user.id,item.id,now()]); }
+      return balance-item.price;
+    });
+    user.coins = result; let items=purchases.get(user.id)||new Set(); items.add(item.id); purchases.set(user.id,items);
+    return { ok:true, coins:result, item:item.id };
+  }));
+  app.post("/api/economy/task", handler(async (req) => {
+    const task = String(req.body?.task||""), today=dayKey(), user=req.user;
+    const overview = await overviewFor(user);
+    const chosen=overview?.tasks?.find((x)=>x.id===task);
+    if (!chosen || chosen.progress<chosen.target) reject(400,"Görev henüz tamamlanmadı.");
+    const key=[user.id,task,today].join(":");
+    const result=await transaction(async(client)=>{
+      let claimed=taskClaims.has(key);
+      if(client) claimed=(await client.query("SELECT 1 FROM economy_task_claims WHERE user_id=$1 AND task=$2 AND day=$3",[user.id,task,today])).rowCount>0;
+      if(claimed) reject(409,"Bu görev ödülü zaten alındı.");
+      if(client){await client.query("UPDATE users SET coins=coins+$1,xp=xp+$2 WHERE id=$3",[chosen.reward,chosen.reward,user.id]);await client.query("INSERT INTO economy_task_claims(user_id,task,day,created) VALUES($1,$2,$3,$4)",[user.id,task,today,now()]);}
+      return {coins:+user.coins+chosen.reward,xp:+user.xp+chosen.reward};
+    });
+    taskClaims.add(key); Object.assign(user,result); return {ok:true,...result,reward:chosen.reward};
+  }));
   app.post(
     "/api/reward",
     handler(async (req) => {

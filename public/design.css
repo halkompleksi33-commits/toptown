@@ -734,6 +734,12 @@ dialog::backdrop {
 #noticeData {
   white-space: pre-wrap;
 }
+.economy-balance { padding: 14px; border-radius: 16px; background: #f6c86818; color: #f6c868; font-weight: 800; }
+.economy-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.economy-grid article { padding:14px; border:1px solid var(--line); border-radius:16px; background:var(--raised); display:grid; gap:8px; }
+.economy-grid small { color:var(--muted); }
+.economy-grid button { min-height:38px; padding:7px; font-size:12px; }
+@media(max-width:640px){.economy-grid{grid-template-columns:1fr 1fr}}
 @media (max-width: 640px) {
   :root {
     --nav: 100px;
