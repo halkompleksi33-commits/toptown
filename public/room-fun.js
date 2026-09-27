@@ -109,9 +109,10 @@
     let box = $("#propertyGame");
     if (!box) { box=document.createElement("section"); box.id="propertyGame"; box.className="property-game"; $("#activityLive").after(box); }
     if (!game) { box.innerHTML='<div><b>🏠 Emlak Turu</b><p>Monopoly tarzı oda oyunu · en fazla 4 oyuncu</p></div>'; const start=document.createElement("button");start.textContent="Oyunu başlat";start.hidden=!canManage;start.onclick=safe(async()=>{await api("property-game",{action:"start"});refresh()});box.append(start);return; }
-    const me=game.players.find(p=>p.id===user.id),turn=game.turn===user.id;
+    const me=game.players.find(p=>p.id===user.id),turn=game.turn===user.id,hasBot=game.players.some(p=>p.id.startsWith('bot:'));
     box.innerHTML='<div><b>🏠 Emlak Turu</b><small>'+(game.lastRoll?esc(game.lastRoll.name)+" zar: "+game.lastRoll.roll+" · "+esc(game.lastRoll.spot):"Oyuncular bekleniyor")+'</small></div><div class="property-players">'+game.players.map(p=>'<span class="'+(p.id===game.turn?'turn':'')+'">'+esc(p.name)+' · 💰'+p.cash+' · 🏘️'+p.properties.length+'</span>').join('')+'</div><p>'+game.log.map(x=>'• '+esc(x)).join('<br>')+'</p>';
     const join=document.createElement("button");join.textContent=me?"Oyundasın":game.players.length>=4?"Oyun dolu":"Oyuna katıl";join.disabled=!!me||game.players.length>=4;join.onclick=safe(async()=>{await api("property-game",{action:"join"});refresh()});box.append(join);
+    const addBot=document.createElement("button");addBot.textContent=hasBot?"Bot oyunda":"🤖 Bot ekle";addBot.hidden=!canManage;addBot.disabled=hasBot||!game.botAvailable||game.players.length>=4;addBot.title=game.botAvailable?'':'Önce oda botunu yönetici panelinden etkinleştirip odaya kat.';addBot.onclick=safe(async()=>{await api("property-game",{action:"join-bot"});refresh()});box.append(addBot);
     const roll=document.createElement("button");roll.textContent=turn?"🎲 Zar at":"Sıra: "+(game.players.find(p=>p.id===game.turn)?.name||"—");roll.disabled=!turn||game.players.length<2;roll.onclick=safe(async()=>{await api("property-game",{action:"roll"});refresh()});box.append(roll);
   }
   function cleanupMonitor(id) {

@@ -1,4 +1,5 @@
 import { randomUUID, randomInt } from "node:crypto";
+import { botRoster } from "../bot-presence.js";
 
 const activities = new WeakMap(),
   gifts = new WeakMap(),
@@ -12,6 +13,39 @@ const questions = [
   ["Mersin hangi bölgededir?", ["Akdeniz", "Ege", "Marmara"], 0],
 ];
 const words = ["sohbet", "arkadaş", "gezegen", "deniz", "yıldız", "müzik"];
+function rollPropertyPlayer(game, player) {
+  const roll = randomInt(1, 7);
+  player.position = (player.position + roll) % board.length;
+  const spot = board[player.position];
+  if (player.position === 0) {
+    player.cash += 100;
+    game.log.push(player.name + " başlangıç bonusu aldı (+100).");
+  } else if (
+    !game.players.some(
+      (p) => p.id !== player.id && p.properties.includes(player.position),
+    ) &&
+    !player.properties.includes(player.position)
+  ) {
+    const price = 80 + player.position * 10;
+    if (player.cash >= price) {
+      player.cash -= price;
+      player.properties.push(player.position);
+      game.log.push(player.name + " " + spot + " arsasını aldı (-" + price + ").");
+    } else game.log.push(player.name + " " + spot + " alanına geldi.");
+  } else {
+    const owner = game.players.find(
+      (p) => p.id !== player.id && p.properties.includes(player.position),
+    );
+    if (owner) {
+      const rent = 30 + player.position * 5;
+      player.cash = Math.max(0, player.cash - rent);
+      owner.cash += rent;
+      game.log.push(player.name + ", " + owner.name + "'a " + rent + " kira ödedi.");
+    }
+  }
+  game.lastRoll = { name: player.name, roll, spot };
+  game.turn = (game.turn + 1) % game.players.length;
+}
 export function giftEvent(room, sender, recipient, gift) {
   const list = gifts.get(room) || [];
   list.push({
@@ -58,6 +92,7 @@ export function roomFun(room, userId) {
       lastRoll: game.lastRoll || null,
       log: game.log.slice(-4),
       board,
+      botAvailable: !!botRoster.get(room),
     } : null,
   };
 }
@@ -75,16 +110,21 @@ export function register({ app, rooms, presence, fail }) {
       if(game.players.some(p=>p.id===q.user.id)) return fail(r,409,"Zaten oyundasın.");
       if(game.players.length>=4) return fail(r,409,"Oyun en fazla 4 kişiyle oynanır.");
       game.players.push({id:q.user.id,name:q.user.name,position:0,cash:800,properties:[]}); game.log.push(q.user.name+" oyuna katıldı.");
+    } else if(action==="join-bot") {
+      if(room.owner!==q.user.id && !q.user.is_admin) return fail(r,403,"Botu yalnızca oda sahibi veya yönetici ekleyebilir.");
+      const bot=botRoster.get(room);
+      if(!game) return fail(r,409,"Önce oyunu başlatın.");
+      if(!bot) return fail(r,409,"Önce oda botunu etkinleştirip odaya katın.");
+      if(game.players.some(p=>p.id==="bot:"+room.id)) return fail(r,409,"Bot zaten oyunda.");
+      if(game.players.length>=4) return fail(r,409,"Oyun en fazla 4 kişiyle oynanır.");
+      game.players.push({id:"bot:"+room.id,name:bot.name+" [BOT]",position:0,cash:800,properties:[],isBot:true}); game.log.push(bot.name+" [BOT] oyuna katıldı.");
     } else if(action==="roll") {
       if(!game || game.players.length<2) return fail(r,409,"Zar için en az 2 oyuncu gerekli.");
       const player=game.players[game.turn];
       if(player?.id!==q.user.id) return fail(r,403,"Sıra diğer oyuncuda.");
-      const roll=randomInt(1,7); player.position=(player.position+roll)%board.length;
-      const spot=board[player.position];
-      if(player.position===0) { player.cash+=100; game.log.push(player.name+" başlangıç bonusu aldı (+100)."); }
-      else if(!game.players.some(p=>p.id!==player.id&&p.properties.includes(player.position)) && !player.properties.includes(player.position)) { const price=80+player.position*10; if(player.cash>=price){player.cash-=price;player.properties.push(player.position);game.log.push(player.name+" "+spot+" arsasını aldı (-"+price+").");} else game.log.push(player.name+" "+spot+" alanına geldi."); }
-      else { const owner=game.players.find(p=>p.id!==player.id&&p.properties.includes(player.position)); if(owner){const rent=30+player.position*5;player.cash=Math.max(0,player.cash-rent);owner.cash+=rent;game.log.push(player.name+", "+owner.name+"'a "+rent+" kira ödedi.");} }
-      game.lastRoll={name:player.name,roll,spot}; game.turn=(game.turn+1)%game.players.length;
+      rollPropertyPlayer(game,player);
+      const bot=game.players[game.turn];
+      if(bot?.isBot) { rollPropertyPlayer(game,bot); game.log.push(bot.name+" otomatik zar attı."); }
     } else return fail(r,400,"Geçersiz oyun işlemi.");
     r.json(roomFun(room,q.user.id));
   });
