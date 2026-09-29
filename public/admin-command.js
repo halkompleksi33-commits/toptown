@@ -122,7 +122,10 @@
                     item.age +
                     " yaş · " +
                     item.coins +
-                    " jeton"
+                    " jeton · Kayıt: " +
+                    (item.created
+                      ? new Date(+item.created).toLocaleString("tr-TR")
+                      : "bilinmiyor")
                 : item.ownerName +
                     " · " +
                     item.online +
