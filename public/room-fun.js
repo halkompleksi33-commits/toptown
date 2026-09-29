@@ -1,46 +1,10 @@
 (() => {
   const esc = (value) => String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[char]);
-  const panel = document.createElement("section");
-  panel.className = "room-fun";
-  panel.innerHTML = `<div class="fun-heading"><strong>🎮 Birlikte eğlen</strong><button id="activityOpen" type="button">Oyun / anket başlat</button></div><div id="activityLive" aria-live="polite"></div>`;
-  $("#chat").before(panel);
   const overlay = document.createElement("div");
   overlay.className = "gift-celebration";
   overlay.hidden = true;
   overlay.setAttribute("role", "status");
   document.body.append(overlay);
-  const dialog = document.createElement("dialog");
-  dialog.innerHTML = `<form method="dialog"><button class="close" aria-label="Kapat">×</button></form><h2>Oda etkinliği</h2><p>60 saniyelik bir tur başlat. Herkes bir kez katılabilir. Etkinlikler geçicidir; sunucu yeniden başlatıldığında sıfırlanır.</p><form id="activityForm"><label>Tür<select name="type"><option value="quiz">Bilgi yarışması</option><option value="word">Kelime oyunu</option><option value="poll">Anket</option></select></label><fieldset id="pollFields" hidden disabled><label>Soru<input name="title" maxlength="120" minlength="3" required></label><label>Seçenekler (her satıra bir seçenek)<textarea name="options" rows="4" required maxlength="243"></textarea></label></fieldset><button class="primary">Başlat</button><p class="fine" role="alert" id="activityError"></p></form>`;
-  document.body.append(dialog);
-  $("#activityOpen").onclick = () => dialog.showModal();
-  $("#activityForm select").onchange = (e) => {
-    $("#pollFields").hidden = $("#pollFields").disabled =
-      e.target.value !== "poll";
-  };
-  $("#activityForm").onsubmit = async (e) => {
-    e.preventDefault();
-    const form = e.target,
-      button = form.querySelector("button"),
-      data = new FormData(form);
-    button.disabled = true;
-    try {
-      await api("activity", {
-        action: "start",
-        type: data.get("type"),
-        title: data.get("title"),
-        options: String(data.get("options") || "")
-          .split("\n")
-          .map((x) => x.trim())
-          .filter(Boolean),
-      });
-      dialog.close();
-      await refresh();
-    } catch (error) {
-      $("#activityError").textContent = error.message;
-    } finally {
-      button.disabled = false;
-    }
-  };
   let currentRoom, signature, giftTimer, context;
   const seen = new Set(),
     monitors = new Map();
@@ -201,10 +165,6 @@
         seen.clear();
         signature = null;
       }
-      const manage = !!data.canManageActivities;
-      $("#activityOpen").hidden = !manage;
-      render(data.fun?.activity, manage);
-      renderPropertyGame(data.fun?.propertyGame, manage);
       const fresh = (data.fun?.gifts || []).filter((g) => !seen.has(g.id));
       for (const gift of fresh) seen.add(gift.id);
       if (seen.size > 200) {

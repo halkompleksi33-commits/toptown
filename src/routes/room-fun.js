@@ -98,6 +98,8 @@ export function roomFun(room, userId) {
 }
 export function register({ app, rooms, presence, fail }) {
   app.post("/api/property-game", (q,r) => {
+    return fail(r, 410, "Oda oyunları kaldırıldı.");
+    /* Legacy game implementation retained below for a future opt-in module. */
     const member=presence.get(q.user.id), room=rooms.get(member?.room);
     if(!room) return fail(r,409,"Önce odaya katılın.");
     if(member.muted) return fail(r,403,"Susturulan kullanıcı oyuna katılamaz.");
@@ -129,6 +131,8 @@ export function register({ app, rooms, presence, fail }) {
     r.json(roomFun(room,q.user.id));
   });
   app.post("/api/activity", (q, r) => {
+    return fail(r, 410, "Oda oyunları ve anketler kaldırıldı.");
+    /* Legacy activity implementation retained below for a future opt-in module. */
     const member = presence.get(q.user.id),
       room = rooms.get(member?.room);
     if (!room) return fail(r, 409, "Önce odaya katılın.");
