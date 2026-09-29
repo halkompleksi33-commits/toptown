@@ -13,7 +13,11 @@
     <script src="/ai-bot.js" defer></script>
     <script src="/pwa.js" defer></script>
     <script src="/v13-home.js" defer></script>
+    <script src="/vendor/sudmgp/index.js" defer></script>
+    <script src="/vendor/sudmgp-wrapper/index.js" defer></script>
+    <script src="/sud-ludo.js" defer></script>
     <link rel="stylesheet" href="/design.css?v=020" />
+    <link rel="stylesheet" href="/sud-ludo.css" />
   </head>
   <body>
     <script src="/module-profile.js" defer></script>
@@ -136,7 +140,7 @@
             ><button id="videoVisibilityButton" hidden>🎥 Videoyu gizle</button>
           </div>
           <div class="tool-group" data-label="ETKİLEŞİM">
-            <button id="giftButton">🎁 Hediye</button>
+            <button id="giftButton">🎁 Hediye</button><button id="sudLudoButton">🎲 Ludo oyna</button>
           </div>
           <div id="communityTools" class="tool-group" data-label="SOSYAL VE YÖNETİM"></div>
         </div>
@@ -184,6 +188,11 @@
       <p class="fine">
         Hediye için önce alıcı seç. Jeton satın alma henüz açık değil.
       </p>
+    </dialog>
+    <dialog id="sudLudoDialog" class="sud-ludo-dialog">
+      <form method="dialog"><button class="close" aria-label="Kapat">×</button></form>
+      <div class="sud-ludo-head"><span>🎲 SUD.Tech</span><h2>Ludo</h2><p id="sudLudoStatus">Oyun hazırlanıyor…</p></div>
+      <div id="sudLudoGame" class="sud-ludo-game" aria-label="Ludo oyun alanı"></div>
     </dialog>
     <dialog id="youtubeDialog">
       <form method="dialog">

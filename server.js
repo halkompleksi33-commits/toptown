@@ -12,6 +12,7 @@ import { register as registerAdmin } from "./src/routes/admin.js";
 import { register as registerAdminManagement } from "./src/routes/admin-management.js";
 import { register as registerImages } from "./src/routes/images.js";
 import { register as registerLevels } from "./src/routes/levels.js";
+import { register as registerSud } from "./src/routes/sud.js";
 import { migrate } from "./src/database.js";
 import {
   hashPassword,
@@ -261,6 +262,8 @@ app.use((q, r, n) => {
 });
 app.use(express.json({ limit: "200kb" }));
 app.use(["/api/login", "/api/register"], createAuthLimiter());
+app.use("/vendor/sudmgp", express.static("node_modules/sudmgp-sdk-js"));
+app.use("/vendor/sudmgp-wrapper", express.static("node_modules/sudmgp-sdk-js-wrapper"));
 app.use(express.static("public"));
 app.get("/api/health", (_, r) =>
   r.json({
@@ -301,6 +304,7 @@ const services = {
   verifyPassword,
 };
 registerAuth(services);
+registerSud(services);
 registerRooms(services);
 registerRoomFun(services);
 registerPresence(services);
