@@ -127,11 +127,18 @@
         <div class="seats" id="seats"></div>
         <p class="hint">Boş koltuğa dokunarak oturabilirsin.</p>
         <div class="tools">
-          <button id="stand">Koltuktan kalk</button
-          ><button id="mic">Mikrofon</button><button id="camera">Kamera</button
-          ><button id="videoButton">YouTube</button
-          ><button id="videoVisibilityButton" hidden>🎥 Videoyu gizle</button
-          ><button id="giftButton">🎁 Hediye</button>
+          <div class="tool-group" data-label="KOLTUK VE MEDYA">
+            <button id="stand">Koltuktan kalk</button
+            ><button id="mic">Mikrofon</button><button id="camera">Kamera</button>
+          </div>
+          <div class="tool-group" data-label="BİRLİKTE İZLE">
+            <button id="videoButton">YouTube</button
+            ><button id="videoVisibilityButton" hidden>🎥 Videoyu gizle</button>
+          </div>
+          <div class="tool-group" data-label="ETKİLEŞİM">
+            <button id="giftButton">🎁 Hediye</button>
+          </div>
+          <div id="communityTools" class="tool-group" data-label="SOSYAL VE YÖNETİM"></div>
         </div>
         <div id="remoteVideos" class="remotevideos"></div>
         <video id="localVideo" muted playsinline autoplay hidden></video>

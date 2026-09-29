@@ -497,14 +497,17 @@ header #onlineBadge {
   font-size: 12px;
 }
 .tools {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 14px 0;
+  display: grid;
+  gap: 10px;
+  padding: 14px 0 20px;
 }
-.tools button {
-  font-size: 12px;
-}
+.tool-group { display:flex; flex-wrap:wrap; gap:8px; padding:11px; border:1px solid var(--line); border-radius:18px; background:var(--surface); }
+.tool-group:before { content:attr(data-label); width:100%; color:var(--muted); font-size:10px; letter-spacing:1.2px; font-weight:800; }
+.tool-group button { flex:1 1 112px; font-size:12px; min-height:42px; }
+.tool-group:has(button:only-child) button { flex-basis:100%; }
+#communityTools:empty { display:none; }
+.tool-group #mic, .tool-group #camera { background:#9789ef18; }
+.tool-group #stand { background:#ffffff0a; }
 #giftButton {
   background: #f69fcd22;
   color: var(--pink);
@@ -827,12 +830,10 @@ dialog::backdrop {
     margin-left: 0;
   }
   .tools {
-    gap: 6px;
+    gap: 8px;
   }
-  .tools button {
-    padding: 9px;
-    font-size: 11px;
-  }
+  .tool-group { padding:9px; gap:6px; }
+  .tool-group button { flex-basis:calc(50% - 3px); padding:9px 7px; font-size:11px; }
   .bottom-nav {
     bottom: 0;
     border-radius: 22px 22px 0 0;
