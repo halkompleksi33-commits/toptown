@@ -27,7 +27,7 @@ export function register(context) {
   const error = (r, message, sdkErrorCode = 1005) => r.json({ ret_code: 1, ret_msg: message, sdk_error_code: sdkErrorCode, data: {} });
   const responseUser = (user) => ({
     uid: String(user.id), nick_name: String(user.name).slice(0, 60),
-    avatar_url: /^https:\/\//.test(user.avatar || "") ? user.avatar : "https://toptown-production-c656.up.railway.app/toptown-logo.png",
+    avatar_url: /^https:\/\//.test(user.avatar || "") ? user.avatar : "https://toptown-production.up.railway.app/toptown-logo.png",
     gender: "", is_ai: user.is_bot ? 1 : 0, ai_level: user.is_bot ? 1 : 0,
   });
 
