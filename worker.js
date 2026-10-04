@@ -62,6 +62,15 @@ export default {
     if(!gameUser)return sudError('Oturum anahtarı geçersiz veya süresi dolmuş.');
     return Response.json({ret_code:0,ret_msg:'',sdk_error_code:0,data:sudUser(gameUser)},{headers:{'Cache-Control':'no-store'}});
    }
+   if(path==='sud/report-game-info'&&post){
+    if(!await validSudSignature())return sudError('SUD callback imzası geçersiz.');
+    const record=await readSudToken(body.ss_token);
+    const gameUser=record&&await q('SELECT * FROM users WHERE id=?',record.uid).first();
+    if(!gameUser)return sudError('Oturum anahtarı geçersiz veya süresi dolmuş.');
+    // Ludo game reports are intentionally acknowledged here. Persistent score
+    // rewards can later be derived from the reported round data.
+    return Response.json({ret_code:0,ret_msg:'',sdk_error_code:0,data:{}},{headers:{'Cache-Control':'no-store'}});
+   }
    if(post&&(path==='register'||path==='login')){
     await limit('auth:'+req.headers.get('CF-Connecting-IP'),12,600);
     const name=clean(body.name,2,30),login=name.normalize('NFKC').toLocaleLowerCase('tr-TR');
