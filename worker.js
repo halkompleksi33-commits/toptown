@@ -8,6 +8,7 @@ const sudSign = async (secret,payload) => {const key=await crypto.subtle.importK
 const now = () => Math.floor(Date.now()/1000);
 function fail(message,status=400){throw Object.assign(new Error(message),{status});}
 function clean(v,min,max){if(typeof v!=='string'||v.trim().length<min||v.trim().length>max)fail('Alanları kontrol edin.');return v.trim();}
+function mobile(v){const digits=String(v||'').replace(/\D/g,'');const normalized=digits.startsWith('90')?digits.slice(2):digits.startsWith('0')?digits.slice(1):digits;if(!/^5\d{9}$/.test(normalized))fail('Geçerli bir cep telefonu girin.');return '+90'+normalized;}
 async function password(value,salt){const key=await crypto.subtle.importKey('raw',enc.encode(value),'PBKDF2',false,['deriveBits']);return hex(await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode(salt),iterations:100000,hash:'SHA-256'},key,256));}
 function equal(a,b){if(a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0;}
 const profile = u => ({id:u.id,name:u.name,emoji:u.emoji||'🙂',avatar:u.avatar||null,city:u.city,age:u.age,coins:u.coins});
@@ -60,10 +61,10 @@ export default {
     if(typeof body.password!=='string'||body.password.length<4||body.password.length>128)fail('Şifre 4–128 karakter olmalı.');
     let u;
     if(path==='register'){
-     const city=clean(body.city,2,50),age=Number(body.age);if(!Number.isInteger(age)||age<18||age>120)fail('Yaş 18–120 arasında olmalı.');
+     const city=clean(body.city,2,50),age=Number(body.age),phone=mobile(body.phone);if(!Number.isInteger(age)||age<18||age>120)fail('Yaş 18–120 arasında olmalı.');
      if(await q('SELECT id FROM users WHERE login=?',login).first())fail('Bu isim kullanılıyor. Başka bir isim seçin.',409);
      const id=crypto.randomUUID(),salt=crypto.randomUUID(),hash=await password(body.password,salt),first=!(await q('SELECT id FROM users WHERE is_admin=1 LIMIT 1').first());
-     await q('INSERT INTO users(id,name,login,city,age,salt,password_hash,coins,is_admin,created) VALUES(?,?,?,?,?,?,?,?,?,?)',id,name,login,city,age,salt,hash,1000,first?1:0,now()).run();u=await q('SELECT * FROM users WHERE id=?',id).first();
+     await q('INSERT INTO users(id,name,login,city,age,phone,salt,password_hash,coins,is_admin,created) VALUES(?,?,?,?,?,?,?,?,?,?,?)',id,name,login,city,age,phone,salt,hash,1000,first?1:0,now()).run();u=await q('SELECT * FROM users WHERE id=?',id).first();
     }else{
      u=await q('SELECT * FROM users WHERE login=?',login).first();const h=await password(body.password,u?.salt||'invalid-account');if(!u||!equal(h,u.password_hash))fail('İsim veya şifre hatalı.',401);
     }

@@ -18,6 +18,7 @@
     <script src="/sud-ludo.js" defer></script>
     <link rel="stylesheet" href="/design.css?v=020" />
     <link rel="stylesheet" href="/sud-ludo.css" />
+    <link rel="stylesheet" href="/phone-whatsapp.css" />
   </head>
   <body>
     <script src="/module-profile.js" defer></script>
@@ -73,6 +74,17 @@
                 required
                 placeholder="18+"
                 inputmode="numeric"
+            /></label
+            ><label class="phone-field"
+              >Cep telefonu<input
+                name="phone"
+                type="tel"
+                required
+                minlength="10"
+                maxlength="16"
+                autocomplete="tel"
+                inputmode="tel"
+                placeholder="05XX XXX XX XX"
             /></label>
           </div>
           <label
@@ -86,9 +98,9 @@
               placeholder="En az 4 karakter"
           /></label>
           <p class="fine" id="privacy">
-            18 yaş ve üzeri kullanıcılar içindir. İsim, şehir ve yaş hesabında
-            saklanır. Odada yalnızca ismin gösterilir. Şifren şifre özeti olarak
-            saklanır.
+            18 yaş ve üzeri kullanıcılar içindir. İsim, şehir, yaş ve telefon
+            numarası hesabında saklanır. Odada yalnızca ismin gösterilir. Şifren
+            şifre özeti olarak saklanır.
           </p>
           <button class="primary" id="authSubmit">Hesap oluştur</button>
           <p id="authError" class="error" role="alert"></p>
@@ -96,9 +108,14 @@
       </section>
       <section id="home" hidden>
         <div class="welcome">
-          <span class="eyebrow">ANA SAYFA · v020</span>
-          <h1 id="greeting"></h1>
-          <p>Bir oda seç veya kendi sohbetini başlat.</p>
+          <div class="welcome-copy">
+            <span class="eyebrow">ANA SAYFA · v020</span>
+            <h1 id="greeting"></h1>
+            <p>Bir oda seç veya kendi sohbetini başlat.</p>
+          </div>
+          <a id="whatsappGroup" class="whatsapp-group" href="https://chat.whatsapp.com/CXEGM0wNyzg8e3CIx9O08v?s=cl&amp;p=a&amp;mlu=4&amp;ilr=4" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp grubuna yeni sekmede katıl">
+            <span aria-hidden="true">◔</span><b>WhatsApp</b><small>Gruba katıl</small>
+          </a>
         </div>
         <p id="guestNotice" class="guest-notice" hidden>Misafir olarak odaları inceleyebilirsin. Katılmak, sohbet etmek ve hediye göndermek için hesap oluştur veya giriş yap.</p>
         <button id="rewardButton" class="reward" hidden>
