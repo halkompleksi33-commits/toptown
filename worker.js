@@ -23,17 +23,22 @@ export default {
    const path=url.pathname.slice(5),post=req.method==='POST';
    if(!post&&req.method!=='GET')fail('Yöntem desteklenmiyor.',405);
    if(post&&req.headers.get('Origin')&&req.headers.get('Origin')!==url.origin)fail('Geçersiz kaynak.',403);
-   let body={};if(post){const raw=await req.text();if(raw.length>8192)fail('İstek çok büyük.',413);try{body=JSON.parse(raw||'{}');}catch{fail('Geçersiz istek.');}}
+   let body={},raw='';if(post){raw=await req.text();if(raw.length>8192)fail('İstek çok büyük.',413);try{body=JSON.parse(raw||'{}');}catch{fail('Geçersiz istek.');}}
    const limit=async(key,max,window)=>{const k=await sha(key+':'+Math.floor(now()/window));const row=await q('INSERT INTO rate_limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count',k,now()+window).first();if(row.count>max)fail('Çok fazla deneme. Biraz sonra tekrar deneyin.',429);};
    let result;
    const sudSecret=env.SUD_TOKEN_SECRET||env.SUD_APP_SECRET||'';
    const sudReady=Boolean(env.SUD_APP_ID&&env.SUD_APP_KEY&&sudSecret);
    const sudError=(message,code=1005)=>Response.json({ret_code:1,ret_msg:message,sdk_error_code:code,data:{}},{headers:{'Cache-Control':'no-store'}});
+   // Sud sends these headers when callback signing is enabled. The public
+   // protocol marks verification as optional, so unsigned development calls
+   // remain accepted while signed production calls are authenticated.
+   const validSudSignature=async()=>{const appId=req.headers.get('Sud-AppId'),timestamp=req.headers.get('Sud-Timestamp'),nonce=req.headers.get('Sud-Nonce'),signature=req.headers.get('Sud-Signature');if(!signature)return true;if(!appId||!timestamp||!nonce||appId!==env.SUD_APP_ID||!env.SUD_APP_SECRET)return false;const key=await crypto.subtle.importKey('raw',enc.encode(env.SUD_APP_SECRET),{name:'HMAC',hash:'SHA-1'},false,['sign']);const expected=hex(await crypto.subtle.sign('HMAC',key,enc.encode(`${appId}\n${timestamp}\n${nonce}\n${raw}\n`)));return equal(signature.toLowerCase(),expected);};
    const sudUser=(user)=>({uid:String(user.id),nick_name:String(user.name).slice(0,60),avatar_url:/^https:\/\//.test(user.avatar||'')?user.avatar:url.origin+'/toptown-logo.png',gender:'',is_ai:0,ai_level:0});
    const readSudToken=async token=>{if(!sudReady||typeof token!=='string')return null;const [payload,signature]=token.split('.');if(!payload||!signature)return null;const expected=await sudSign(sudSecret,payload);if(!equal(signature,expected))return null;try{const data=JSON.parse(decode64url(payload));return data.purpose==='sud'&&data.exp>now()?data:null;}catch{return null;}};
    const issueSudToken=async userId=>{const payload=base64url(enc.encode(JSON.stringify({uid:userId,exp:now()+86400,purpose:'sud'})));return payload+'.'+await sudSign(sudSecret,payload);};
    if(path==='sud/get-sstoken'&&post){
     if(!sudReady)return sudError('SUD ayarları henüz tamamlanmadı.');
+    if(!await validSudSignature())return sudError('SUD callback imzası geçersiz.');
     const code=typeof body.code==='string'?body.code:'';
     const record=await q('DELETE FROM sud_codes WHERE code_hash=? RETURNING user_id,expires',await sha(code)).first();
     if(!record||record.expires<now())return sudError('Kod geçersiz veya süresi dolmuş.');
@@ -43,6 +48,7 @@ export default {
     return Response.json({ret_code:0,ret_msg:'',sdk_error_code:0,data:{ss_token:ssToken,expire_date:(now()+86400)*1000,expire_date_str:String((now()+86400)*1000),user_info:sudUser(gameUser)}},{headers:{'Cache-Control':'no-store'}});
    }
    if(path==='sud/update-sstoken'&&post){
+    if(!await validSudSignature())return sudError('SUD callback imzası geçersiz.');
     const record=await readSudToken(body.ss_token);
     const gameUser=record&&await q('SELECT * FROM users WHERE id=?',record.uid).first();
     if(!gameUser)return sudError('Oturum anahtarı geçersiz veya süresi dolmuş.');
@@ -50,6 +56,7 @@ export default {
     return Response.json({ret_code:0,ret_msg:'',sdk_error_code:0,data:{ss_token:ssToken,expire_date:(now()+86400)*1000,expire_date_str:String((now()+86400)*1000)}},{headers:{'Cache-Control':'no-store'}});
    }
    if(path==='sud/get-user-info'&&post){
+    if(!await validSudSignature())return sudError('SUD callback imzası geçersiz.');
     const record=await readSudToken(body.ss_token);
     const gameUser=record&&await q('SELECT * FROM users WHERE id=?',record.uid).first();
     if(!gameUser)return sudError('Oturum anahtarı geçersiz veya süresi dolmuş.');
