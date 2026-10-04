@@ -1,6 +1,10 @@
 const enc = new TextEncoder();
+const dec = new TextDecoder();
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('');
 const sha = async s => hex(await crypto.subtle.digest('SHA-256',enc.encode(s)));
+const base64url = value => btoa(String.fromCharCode(...new Uint8Array(value))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const decode64url = value => dec.decode(Uint8Array.from(atob(value.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0)));
+const sudSign = async (secret,payload) => {const key=await crypto.subtle.importKey('raw',enc.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return base64url(await crypto.subtle.sign('HMAC',key,enc.encode(payload)));};
 const now = () => Math.floor(Date.now()/1000);
 function fail(message,status=400){throw Object.assign(new Error(message),{status});}
 function clean(v,min,max){if(typeof v!=='string'||v.trim().length<min||v.trim().length>max)fail('Alanları kontrol edin.');return v.trim();}
@@ -21,6 +25,35 @@ export default {
    let body={};if(post){const raw=await req.text();if(raw.length>8192)fail('İstek çok büyük.',413);try{body=JSON.parse(raw||'{}');}catch{fail('Geçersiz istek.');}}
    const limit=async(key,max,window)=>{const k=await sha(key+':'+Math.floor(now()/window));const row=await q('INSERT INTO rate_limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count',k,now()+window).first();if(row.count>max)fail('Çok fazla deneme. Biraz sonra tekrar deneyin.',429);};
    let result;
+   const sudSecret=env.SUD_TOKEN_SECRET||env.SUD_APP_SECRET||'';
+   const sudReady=Boolean(env.SUD_APP_ID&&env.SUD_APP_KEY&&sudSecret);
+   const sudError=(message,code=1005)=>Response.json({ret_code:1,ret_msg:message,sdk_error_code:code,data:{}},{headers:{'Cache-Control':'no-store'}});
+   const sudUser=(user)=>({uid:String(user.id),nick_name:String(user.name).slice(0,60),avatar_url:/^https:\/\//.test(user.avatar||'')?user.avatar:url.origin+'/toptown-logo.png',gender:'',is_ai:0,ai_level:0});
+   const readSudToken=async token=>{if(!sudReady||typeof token!=='string')return null;const [payload,signature]=token.split('.');if(!payload||!signature)return null;const expected=await sudSign(sudSecret,payload);if(!equal(signature,expected))return null;try{const data=JSON.parse(decode64url(payload));return data.purpose==='sud'&&data.exp>now()?data:null;}catch{return null;}};
+   const issueSudToken=async userId=>{const payload=base64url(enc.encode(JSON.stringify({uid:userId,exp:now()+86400,purpose:'sud'})));return payload+'.'+await sudSign(sudSecret,payload);};
+   if(path==='sud/get-sstoken'&&post){
+    if(!sudReady)return sudError('SUD ayarları henüz tamamlanmadı.');
+    const code=typeof body.code==='string'?body.code:'';
+    const record=await q('DELETE FROM sud_codes WHERE code_hash=? RETURNING user_id,expires',await sha(code)).first();
+    if(!record||record.expires<now())return sudError('Kod geçersiz veya süresi dolmuş.');
+    const gameUser=await q('SELECT * FROM users WHERE id=?',record.user_id).first();
+    if(!gameUser)return sudError('Kullanıcı bulunamadı.');
+    const ssToken=await issueSudToken(gameUser.id);
+    return Response.json({ret_code:0,ret_msg:'',sdk_error_code:0,data:{ss_token:ssToken,expire_date:(now()+86400)*1000,expire_date_str:String((now()+86400)*1000),user_info:sudUser(gameUser)}},{headers:{'Cache-Control':'no-store'}});
+   }
+   if(path==='sud/update-sstoken'&&post){
+    const record=await readSudToken(body.ss_token);
+    const gameUser=record&&await q('SELECT * FROM users WHERE id=?',record.uid).first();
+    if(!gameUser)return sudError('Oturum anahtarı geçersiz veya süresi dolmuş.');
+    const ssToken=await issueSudToken(gameUser.id);
+    return Response.json({ret_code:0,ret_msg:'',sdk_error_code:0,data:{ss_token:ssToken,expire_date:(now()+86400)*1000,expire_date_str:String((now()+86400)*1000)}},{headers:{'Cache-Control':'no-store'}});
+   }
+   if(path==='sud/get-user-info'&&post){
+    const record=await readSudToken(body.ss_token);
+    const gameUser=record&&await q('SELECT * FROM users WHERE id=?',record.uid).first();
+    if(!gameUser)return sudError('Oturum anahtarı geçersiz veya süresi dolmuş.');
+    return Response.json({ret_code:0,ret_msg:'',sdk_error_code:0,data:sudUser(gameUser)},{headers:{'Cache-Control':'no-store'}});
+   }
    if(post&&(path==='register'||path==='login')){
     await limit('auth:'+req.headers.get('CF-Connecting-IP'),12,600);
     const name=clean(body.name,2,30),login=name.normalize('NFKC').toLocaleLowerCase('tr-TR');
@@ -40,7 +73,9 @@ export default {
     const u=await q('SELECT users.* FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token=? AND sessions.expires>?',await sha(token),now()).first();if(!u)fail('Oturum sona erdi. Tekrar giriş yapın.',401);
     if(post)await limit('action:'+u.id,90,60);
     const member=async()=>{const p=await q('SELECT * FROM presence WHERE user_id=?',u.id).first();if(!p)fail('Önce bir odaya katılın.',409);const ban=await q("SELECT action FROM room_moderation WHERE room_id=? AND user_id=? AND action='ban' AND (until_at IS NULL OR until_at>?)",p.room_id,u.id,now()).first();if(ban)fail('Bu odadan uzaklaştırıldın.',403);return p;};
-    if(path==='notifications'&&!post){const rows=(await q("SELECT id,kind,text,link,created,read_at FROM notifications WHERE user_id=? ORDER BY created DESC LIMIT 50",u.id).all()).results;const invites=(await q("SELECT i.id,r.name AS room_name FROM invitations i JOIN rooms r ON r.id=i.room_id WHERE i.recipient=? AND i.status='pending'",u.id).all()).results;const requests=(await q("SELECT f.id,users.name FROM friendships f JOIN users ON users.id=f.requester WHERE f.recipient=? AND f.status='pending'",u.id).all()).results;result={items:[...invites.map(x=>({id:'invite-'+x.id,kind:'invite',text:x.room_name+' odasına davetin var.'})),...requests.map(x=>({id:'friend-'+x.id,kind:'friend',text:x.name+' sana arkadaşlık isteği gönderdi.'})),...rows],unread:rows.filter(x=>!x.read_at).length+invites.length+requests.length};}
+    if(path==='sud/config'&&!post){result={enabled:sudReady,appId:env.SUD_APP_ID||'',appKey:env.SUD_APP_KEY||'',ludoId:env.SUD_LUDO_ID||'1468180338417074177'};}
+    else if(path==='sud/code'&&post){const p=await member();if(!sudReady)fail('SUD oyun ayarları henüz tamamlanmadı.',503);if(body.roomId!==p.room_id)fail('Ludo yalnızca bulunduğun oda için açılabilir.',403);const code=hex(crypto.getRandomValues(new Uint8Array(32)));await db.batch([q('DELETE FROM sud_codes WHERE expires<?',now()),q('INSERT INTO sud_codes(code_hash,user_id,expires) VALUES(?,?,?)',await sha(code),u.id,now()+300)]);result={code,expires:(now()+300)*1000};}
+    else if(path==='notifications'&&!post){const rows=(await q("SELECT id,kind,text,link,created,read_at FROM notifications WHERE user_id=? ORDER BY created DESC LIMIT 50",u.id).all()).results;const invites=(await q("SELECT i.id,r.name AS room_name FROM invitations i JOIN rooms r ON r.id=i.room_id WHERE i.recipient=? AND i.status='pending'",u.id).all()).results;const requests=(await q("SELECT f.id,users.name FROM friendships f JOIN users ON users.id=f.requester WHERE f.recipient=? AND f.status='pending'",u.id).all()).results;result={items:[...invites.map(x=>({id:'invite-'+x.id,kind:'invite',text:x.room_name+' odasına davetin var.'})),...requests.map(x=>({id:'friend-'+x.id,kind:'friend',text:x.name+' sana arkadaşlık isteği gönderdi.'})),...rows],unread:rows.filter(x=>!x.read_at).length+invites.length+requests.length};}
     else if(path==='notifications/read'&&post){await q('UPDATE notifications SET read_at=? WHERE user_id=? AND read_at IS NULL',now(),u.id).run();result={ok:true};}
     else if(path==='leaderboard'&&!post){const since=now()-(url.searchParams.get('period')==='week'?604800:86400);const users=(await q("SELECT u.name,'🏅' AS emoji,SUM(g.cost) AS total FROM gifts g JOIN users u ON u.id=g.sender WHERE g.created>=? GROUP BY g.sender ORDER BY total DESC LIMIT 10",since).all()).results;const rooms=(await q('SELECT r.name,COALESCE(rp.level,1) AS level,COALESCE(SUM(g.cost),0) AS total FROM rooms r LEFT JOIN gifts g ON g.room_id=r.id AND g.created>=? LEFT JOIN room_progress rp ON rp.room_id=r.id GROUP BY r.id ORDER BY total DESC,level DESC LIMIT 10',since).all()).results;result={users,rooms};}
     else if(path==='profile/details'&&!post){const bio=await q('SELECT bio FROM user_profiles WHERE user_id=?',u.id).first(),badges=(await q('SELECT badge,created FROM badges WHERE user_id=? ORDER BY created DESC LIMIT 30',u.id).all()).results,friends=(await q("SELECT COUNT(*) AS count FROM friendships WHERE status='accepted' AND (requester=? OR recipient=?)",u.id,u.id).first()).count,events=(await q('SELECT e.title,e.starts,r.name AS room_name FROM events e JOIN rooms r ON r.id=e.room_id WHERE e.creator=? OR e.room_id IN (SELECT room_id FROM presence WHERE user_id=?) ORDER BY e.starts DESC LIMIT 10',u.id,u.id).all()).results;result={user:profile(u),bio:bio?.bio||'',badges,friends,events};}

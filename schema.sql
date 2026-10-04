@@ -32,3 +32,5 @@ CREATE TABLE IF NOT EXISTS room_policies(room_id TEXT PRIMARY KEY REFERENCES roo
 CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),kind TEXT NOT NULL,text TEXT NOT NULL,link TEXT,created INTEGER NOT NULL,read_at INTEGER);
 CREATE INDEX IF NOT EXISTS notifications_user ON notifications(user_id,created DESC);
 CREATE TABLE IF NOT EXISTS profile_images(user_id TEXT PRIMARY KEY REFERENCES users(id),image_url TEXT,updated INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS sud_codes(code_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS sud_codes_expires ON sud_codes(expires);
